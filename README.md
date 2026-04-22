@@ -111,6 +111,10 @@ Ou simplement copier le fichier ailleurs.
 - Session avec cookie `HttpOnly` et `SameSite=Lax`.
 - Toutes les entrées utilisateur sont échappées (`htmlspecialchars`).
 - `config.php` et `data/` sont exclus de git.
+- **`.htaccess`** à la racine bloque l'accès web direct à `config.php`, `data/`, `lib/`, `views/`, `.md` et `.sqlite`.
+- Un `.htaccess` `Require all denied` est généré automatiquement dans `data/` au premier lancement.
+
+> ⚠️ **nginx** : si le serveur utilise nginx (seul ou en proxy devant Apache, cas typique Plesk), les fichiers statiques contournent `.htaccess`. Voir `CLAUDE.md` pour les directives nginx à ajouter.
 
 > ⚠️ Pour un usage en production exposé à Internet, servir impérativement en **HTTPS** et envisager une IP allowlist ou un reverse-proxy avec auth additionnelle.
 

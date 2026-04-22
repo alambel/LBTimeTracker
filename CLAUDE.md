@@ -76,6 +76,27 @@ entries(id, date, period CHECK IN ('AM','PM','EV','NT'), project_id FK, note, up
 3. `data/` doit être writable par PHP (auto-créé par `db_init`).
 4. 1ère visite → setup, puis login.
 
+### Sécurité d'accès web
+- **Apache** : le `.htaccess` racine couvre tout (blocage de `config.php`, `data/`, `lib/`, `views/`, `.md`, `.sqlite`).
+- **Plesk** (nginx proxy Apache) : les fichiers statiques (`.sqlite`, `.md`) peuvent être servis par nginx **sans passer par Apache** → `.htaccess` contourné. Il faut ajouter des directives nginx.
+
+Dans Plesk : domaine → **Paramètres Apache & nginx** → *Directives nginx supplémentaires* :
+
+```nginx
+# LB Time Tracker — blocage des fichiers et dossiers sensibles
+location ~* \.(md|sqlite|sqlite-journal|db|log|bak|env)$ {
+    deny all;
+    return 404;
+}
+location = /config.php { deny all; return 404; }
+location ^~ /data/  { deny all; return 404; }
+location ^~ /lib/   { deny all; return 404; }
+location ^~ /views/ { deny all; return 404; }
+location ~ /\.(?!well-known) { deny all; return 404; }
+```
+
+Vérifier après déploiement : `curl -I https://<domaine>/data/timetrack.sqlite` doit renvoyer 403/404, **pas** 200.
+
 ## Test end-to-end rapide
 ```bash
 php -S 127.0.0.1:8765 &

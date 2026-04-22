@@ -1,0 +1,29 @@
+# LB Time Tracker — règles de sécurité web (Apache)
+# Bloque l'accès direct aux fichiers sensibles et aux dossiers internes.
+# Si le serveur utilise nginx (seul ou en proxy), voir CLAUDE.md pour les
+# directives nginx équivalentes à ajouter dans Plesk.
+
+Options -Indexes
+ServerSignature Off
+
+# Fichiers sensibles : configuration, htaccess lui-même, gitignore, env
+<FilesMatch "^(config\.php|\.htaccess|\.gitignore|\.env|composer\..*)$">
+    Require all denied
+</FilesMatch>
+
+# Documentation interne (README, CLAUDE, …)
+<FilesMatch "\.md$">
+    Require all denied
+</FilesMatch>
+
+# Dumps de base de données ou logs
+<FilesMatch "\.(sqlite|sqlite-journal|db|log|bak)$">
+    Require all denied
+</FilesMatch>
+
+# Dossiers internes (données, includes PHP, git)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(data|lib|views)(/|$) - [F,L]
+    RewriteRule ^\.git(/|$) - [F,L]
+</IfModule>

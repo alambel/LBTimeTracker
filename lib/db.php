@@ -4,6 +4,13 @@ function db_init(string $path): PDO {
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
+    // Ceinture + bretelles : empêcher l'accès web direct au dossier data/
+    // (complémentaire au .htaccess racine, utile si le serveur ignore le
+    // parent ou si data/ est déplacé manuellement).
+    $htaccess = $dir . '/.htaccess';
+    if (!file_exists($htaccess)) {
+        @file_put_contents($htaccess, "Require all denied\n");
+    }
     $db = new PDO('sqlite:' . $path);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
