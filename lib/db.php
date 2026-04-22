@@ -22,18 +22,50 @@ function db_migrate(PDO $db): void {
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     ");
-    $db->exec("
-        CREATE TABLE IF NOT EXISTS entries (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            period TEXT NOT NULL CHECK (period IN ('AM','PM')),
-            project_id INTEGER NOT NULL,
-            note TEXT,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(date, period),
-            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-        )
-    ");
+
+    $entriesSql = (string)$db->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='entries'")->fetchColumn();
+
+    if ($entriesSql === '') {
+        $db->exec("
+            CREATE TABLE entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                period TEXT NOT NULL CHECK (period IN ('AM','PM','EV','NT')),
+                project_id INTEGER NOT NULL,
+                note TEXT,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(date, period),
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            )
+        ");
+    } elseif (strpos($entriesSql, "'EV'") === false) {
+        $db->exec('BEGIN');
+        try {
+            $db->exec("
+                CREATE TABLE entries_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT NOT NULL,
+                    period TEXT NOT NULL CHECK (period IN ('AM','PM','EV','NT')),
+                    project_id INTEGER NOT NULL,
+                    note TEXT,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(date, period),
+                    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                )
+            ");
+            $db->exec("
+                INSERT INTO entries_new (id, date, period, project_id, note, updated_at)
+                SELECT id, date, period, project_id, note, updated_at FROM entries
+            ");
+            $db->exec("DROP TABLE entries");
+            $db->exec("ALTER TABLE entries_new RENAME TO entries");
+            $db->exec('COMMIT');
+        } catch (Throwable $e) {
+            $db->exec('ROLLBACK');
+            throw $e;
+        }
+    }
+
     $db->exec("CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_entries_project ON entries(project_id)");
 }
@@ -84,15 +116,19 @@ function set_entry(PDO $db, string $date, string $period, ?int $projectId, ?stri
         $stmt->execute([$date, $period]);
         return;
     }
-    $stmt = $db->prepare('
-        INSERT INTO entries (date, period, project_id, note)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(date, period) DO UPDATE SET
-            project_id = excluded.project_id,
-            note = excluded.note,
-            updated_at = CURRENT_TIMESTAMP
-    ');
-    $stmt->execute([$date, $period, $projectId, $note !== '' ? $note : null]);
+    // Compatible avec SQLite < 3.24 (pas d'UPSERT "ON CONFLICT DO UPDATE")
+    $noteValue = ($note !== null && $note !== '') ? $note : null;
+    $db->beginTransaction();
+    try {
+        $del = $db->prepare('DELETE FROM entries WHERE date = ? AND period = ?');
+        $del->execute([$date, $period]);
+        $ins = $db->prepare('INSERT INTO entries (date, period, project_id, note, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)');
+        $ins->execute([$date, $period, $projectId, $noteValue]);
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollBack();
+        throw $e;
+    }
 }
 
 function summary_between(PDO $db, string $from, string $to): array {

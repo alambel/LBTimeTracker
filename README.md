@@ -4,7 +4,7 @@ Outil léger de suivi du temps de travail **par demi-journée et par projet**. S
 
 ## Fonctionnalités
 
-- **Calendrier mensuel** — clic sur une demi-journée (AM/PM) → choix du projet + note facultative, enregistrement AJAX.
+- **Calendrier mensuel** — clic sur un créneau (Matin / Après-midi / Soir / Nuit) → choix du projet + note facultative, enregistrement AJAX. 4 créneaux par jour.
 - **Résumé par période** — demi-journées, jours équivalents, pourcentages, barres de répartition.
 - **Export CSV** de la période filtrée.
 - **Gestion des projets** — nom, couleur, archivage, suppression (cascade sur les saisies).
@@ -38,10 +38,10 @@ Aucune règle de réécriture d'URL (`.htaccess`, nginx rewrite) n'est nécessai
 
 ## Usage
 
-### Saisir une demi-journée
+### Saisir un créneau
 
 1. Ouvrir **Calendrier**.
-2. Cliquer sur le créneau **AM** ou **PM** d'un jour.
+2. Cliquer sur un créneau d'un jour : **AM** (matin), **PM** (après-midi), **EV** (soir) ou **NT** (nuit).
 3. Sélectionner un projet (ou « Aucun / Effacer » pour vider).
 4. Ajouter une note facultative (200 caractères max).
 5. **Enregistrer**.

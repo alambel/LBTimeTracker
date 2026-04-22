@@ -36,16 +36,16 @@
         }
         $cursor = clone $first;
         $today = date('Y-m-d');
+        $periods = period_codes();
         while ($cursor <= $last) {
             $date = $cursor->format('Y-m-d');
-            $am = $byKey[$date . '_AM'] ?? null;
-            $pm = $byKey[$date . '_PM'] ?? null;
             $isToday = $date === $today;
             $isWeekend = (int)$cursor->format('N') >= 6;
             $classes = 'cal-cell' . ($isToday ? ' today' : '') . ($isWeekend ? ' weekend' : '');
             echo '<div class="' . $classes . '">';
             echo '<div class="cal-date"><span>' . $cursor->format('j') . '</span></div>';
-            foreach ([['AM', $am], ['PM', $pm]] as [$period, $entry]) {
+            foreach ($periods as $period) {
+                $entry = $byKey[$date . '_' . $period] ?? null;
                 $style = $entry ? ' style="background:' . e($entry['project_color']) . '"' : '';
                 $text = $entry ? e($entry['project_name']) : '—';
                 $note = $entry ? (string)($entry['note'] ?? '') : '';

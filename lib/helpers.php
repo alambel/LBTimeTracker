@@ -32,3 +32,20 @@ function valid_date(string $s): bool {
     $t = strtotime($s);
     return $t !== false;
 }
+
+function period_codes(): array {
+    return ['AM', 'PM', 'EV', 'NT'];
+}
+
+function period_labels(): array {
+    return [
+        'AM' => 'Matin',
+        'PM' => 'Après-midi',
+        'EV' => 'Soir',
+        'NT' => 'Nuit',
+    ];
+}
+
+function valid_period(string $p): bool {
+    return in_array($p, period_codes(), true);
+}

@@ -43,12 +43,15 @@ Actions préfixées `api_*` → JSON + `require_auth()` renvoie 401 JSON au lieu
 ## Schéma SQLite
 ```sql
 projects(id, name UNIQUE, color, archived, created_at)
-entries(id, date, period CHECK IN ('AM','PM'), project_id FK, note, updated_at,
-        UNIQUE(date, period))  -- un seul projet par demi-journée
+entries(id, date, period CHECK IN ('AM','PM','EV','NT'), project_id FK, note, updated_at,
+        UNIQUE(date, period))  -- un seul projet par créneau
 ```
+- **4 créneaux par jour** : `AM` (Matin), `PM` (Après-midi), `EV` (Soir), `NT` (Nuit). Codes et labels centralisés dans `helpers.php` (`period_codes()`, `period_labels()`, `valid_period()`).
 - `set_entry(..., projectId=null)` supprime l'entrée (la "case vide")
+- `set_entry()` utilise **DELETE + INSERT dans une transaction** (pas `ON CONFLICT DO UPDATE`, non supporté sur SQLite < 3.24 que certains serveurs utilisent encore).
 - `ON DELETE CASCADE` depuis projects → supprimer un projet efface ses saisies
 - `foreign_keys = ON` activé à l'init
+- **Migration auto** : `db_migrate()` détecte une ancienne table `entries` avec CHECK `('AM','PM')` uniquement et la recrée avec le nouveau CHECK (copie des données préservée).
 
 ## Sécurité
 - `config.php` en mode 0600, contient `password_hash` (bcrypt via `password_hash(PASSWORD_BCRYPT)`)
@@ -64,6 +67,8 @@ entries(id, date, period CHECK IN ('AM','PM'), project_id FK, note, updated_at,
 - **Dialog natif** : `<dialog>` + `dialog.showModal()`. Fallback `setAttribute('open')` si pas supporté.
 - **Semaine démarre lundi** : `cursor->format('N')` retourne 1-7 (lundi=1), décalage = N-1 cellules vides avant le 1er du mois.
 - **Timezone** : lue depuis `config.timezone` (défaut `Europe/Zurich`), appliquée avant `session_start`.
+- **SQLite UPSERT** : bannir `INSERT ... ON CONFLICT DO UPDATE` (échoue sur SQLite < 3.24 avec *"syntax error near ON"*). Utiliser DELETE+INSERT en transaction ou `INSERT OR REPLACE`.
+- **Ajouter un créneau** : le CHECK constraint SQLite n'est pas altérable — il faut recréer la table (pattern déjà en place dans `db_migrate()`). Toujours mettre à jour `period_codes()` et `period_labels()` dans `helpers.php` en même temps que le `CHECK`.
 
 ## Déploiement serveur PHP
 1. Upload le dossier (sans `config.php` ni `data/`).

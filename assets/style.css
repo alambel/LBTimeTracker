@@ -152,10 +152,10 @@ body {
     border-right: 1px solid #e2e8f0;
     border-top: 1px solid #e2e8f0;
     padding: 6px;
-    min-height: 96px;
+    min-height: 140px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     background: #fff;
 }
 .cal-cell.cal-empty { background: #f8fafc; }
@@ -184,7 +184,7 @@ body {
 
 .cal-slot {
     flex: 1;
-    padding: 4px 6px;
+    padding: 3px 6px;
     border: 1px dashed #cbd5e1;
     background: transparent;
     border-radius: 6px;
@@ -192,11 +192,11 @@ body {
     font-size: 11px;
     text-align: left;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 1px;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
     color: #94a3b8;
-    min-height: 28px;
+    min-height: 24px;
     font-family: inherit;
     overflow: hidden;
 }
@@ -213,9 +213,12 @@ body {
     opacity: 0.75;
     font-weight: 700;
     letter-spacing: 0.05em;
+    flex-shrink: 0;
+    min-width: 18px;
 }
 .cal-slot .slot-project {
     font-size: 12px;
+    flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -453,9 +456,10 @@ dialog input:focus, dialog select:focus {
 .empty-state a { color: #2563eb; }
 
 @media (max-width: 640px) {
-    .cal-cell { min-height: 80px; padding: 4px; }
-    .cal-slot { font-size: 10px; }
+    .cal-cell { min-height: 128px; padding: 4px; gap: 2px; }
+    .cal-slot { font-size: 10px; min-height: 22px; padding: 2px 5px; }
     .cal-slot .slot-project { font-size: 11px; }
+    .cal-slot .slot-label { min-width: 16px; }
     .main { padding: 12px; }
     .month-nav h1 { min-width: 120px; font-size: 18px; }
 }

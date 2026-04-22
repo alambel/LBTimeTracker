@@ -27,12 +27,19 @@
         projectEl.appendChild(opt);
     });
 
+    const PERIOD_LABELS = {
+        AM: 'Matin',
+        PM: 'Après-midi',
+        EV: 'Soir',
+        NT: 'Nuit',
+    };
+
     let currentBtn = null;
 
     function openDialog(btn) {
         currentBtn = btn;
         dateEl.textContent = btn.dataset.date;
-        periodEl.textContent = btn.dataset.period === 'AM' ? 'Matin' : 'Après-midi';
+        periodEl.textContent = PERIOD_LABELS[btn.dataset.period] || btn.dataset.period;
         const pid = btn.dataset.projectId;
         projectEl.value = (pid && pid !== '0') ? pid : '';
         noteEl.value = btn.dataset.note || '';

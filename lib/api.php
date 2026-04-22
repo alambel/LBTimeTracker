@@ -24,7 +24,7 @@ function api_dispatch(string $action, PDO $db): void {
                     $projectId = (int)$data['project_id'];
                 }
                 $note = isset($data['note']) ? trim((string)$data['note']) : null;
-                if (!valid_date($date) || !in_array($period, ['AM', 'PM'], true)) {
+                if (!valid_date($date) || !valid_period($period)) {
                     http_response_code(400);
                     echo json_encode(['error' => 'Invalid params']);
                     return;
