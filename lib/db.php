@@ -1,0 +1,111 @@
+<?php
+function db_init(string $path): PDO {
+    $dir = dirname($path);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    $db = new PDO('sqlite:' . $path);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $db->exec('PRAGMA foreign_keys = ON');
+    db_migrate($db);
+    return $db;
+}
+
+function db_migrate(PDO $db): void {
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            color TEXT NOT NULL DEFAULT '#4a90e2',
+            archived INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            period TEXT NOT NULL CHECK (period IN ('AM','PM')),
+            project_id INTEGER NOT NULL,
+            note TEXT,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(date, period),
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+    ");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_entries_project ON entries(project_id)");
+}
+
+function get_projects(PDO $db, bool $includeArchived = false): array {
+    $sql = 'SELECT * FROM projects' . ($includeArchived ? '' : ' WHERE archived = 0') . ' ORDER BY archived, name';
+    return $db->query($sql)->fetchAll();
+}
+
+function get_project(PDO $db, int $id): ?array {
+    $stmt = $db->prepare('SELECT * FROM projects WHERE id = ?');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+function create_project(PDO $db, string $name, string $color): int {
+    $stmt = $db->prepare('INSERT INTO projects (name, color) VALUES (?, ?)');
+    $stmt->execute([$name, $color]);
+    return (int)$db->lastInsertId();
+}
+
+function update_project(PDO $db, int $id, string $name, string $color, bool $archived): void {
+    $stmt = $db->prepare('UPDATE projects SET name = ?, color = ?, archived = ? WHERE id = ?');
+    $stmt->execute([$name, $color, $archived ? 1 : 0, $id]);
+}
+
+function delete_project(PDO $db, int $id): void {
+    $stmt = $db->prepare('DELETE FROM projects WHERE id = ?');
+    $stmt->execute([$id]);
+}
+
+function get_entries_between(PDO $db, string $from, string $to): array {
+    $stmt = $db->prepare('
+        SELECT e.*, p.name AS project_name, p.color AS project_color
+        FROM entries e
+        JOIN projects p ON p.id = e.project_id
+        WHERE e.date BETWEEN ? AND ?
+        ORDER BY e.date, e.period
+    ');
+    $stmt->execute([$from, $to]);
+    return $stmt->fetchAll();
+}
+
+function set_entry(PDO $db, string $date, string $period, ?int $projectId, ?string $note = null): void {
+    if ($projectId === null) {
+        $stmt = $db->prepare('DELETE FROM entries WHERE date = ? AND period = ?');
+        $stmt->execute([$date, $period]);
+        return;
+    }
+    $stmt = $db->prepare('
+        INSERT INTO entries (date, period, project_id, note)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(date, period) DO UPDATE SET
+            project_id = excluded.project_id,
+            note = excluded.note,
+            updated_at = CURRENT_TIMESTAMP
+    ');
+    $stmt->execute([$date, $period, $projectId, $note !== '' ? $note : null]);
+}
+
+function summary_between(PDO $db, string $from, string $to): array {
+    $stmt = $db->prepare("
+        SELECT p.id, p.name, p.color,
+               COUNT(e.id) AS half_days,
+               COUNT(e.id) / 2.0 AS full_days
+        FROM projects p
+        LEFT JOIN entries e ON e.project_id = p.id AND e.date BETWEEN ? AND ?
+        GROUP BY p.id
+        HAVING half_days > 0
+        ORDER BY half_days DESC, p.name
+    ");
+    $stmt->execute([$from, $to]);
+    return $stmt->fetchAll();
+}

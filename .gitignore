@@ -1,0 +1,6 @@
+config.php
+data/
+*.sqlite
+*.sqlite-journal
+.DS_Store
+.idea/
