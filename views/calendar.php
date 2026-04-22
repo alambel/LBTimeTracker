@@ -71,19 +71,18 @@
     </div>
 </div>
 
-<dialog id="slot-dialog">
+<dialog id="slot-dialog" aria-labelledby="sd-heading">
     <form method="dialog" id="slot-form">
-        <h3>Saisir une demi-journée</h3>
-        <div class="dialog-info">
-            <strong id="sd-date"></strong> — <span id="sd-period"></span>
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <h3 id="sd-heading">
+            <strong id="sd-date"></strong>
+            <span id="sd-period" class="sd-period-badge"></span>
+        </h3>
+        <div class="project-grid" id="sd-project-grid" role="radiogroup" aria-label="Projet">
+            <!-- rempli par JS -->
         </div>
-        <label>Projet
-            <select id="sd-project">
-                <option value="">— Aucun / Effacer —</option>
-            </select>
-        </label>
-        <label>Note (facultatif)
-            <input type="text" id="sd-note" maxlength="200" placeholder="Ex: sprint X, bug Y…">
+        <label class="sd-note-label">Note <span class="hint-inline">(facultatif)</span>
+            <input type="text" id="sd-note" maxlength="200" placeholder="Ex: sprint X, bug Y…" autocomplete="off">
         </label>
         <div class="dialog-actions">
             <button type="button" id="sd-cancel">Annuler</button>
