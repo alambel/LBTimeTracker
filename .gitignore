@@ -1,4 +1,5 @@
 config.php
 version.txt
+.version_cache.json
 .DS_Store
 .idea/

@@ -1,4 +1,9 @@
 <?php
+const GITHUB_OWNER = 'alambel';
+const GITHUB_REPO = 'LBTimeTracker';
+const GITHUB_BRANCH = 'main';
+const VERSION_CACHE_TTL = 300; // 5 min
+
 /**
  * Lit les infos de déploiement (hash, date ISO, subject du dernier commit).
  *
@@ -6,6 +11,7 @@
  *   1. version.txt (3 lignes : hash, date ISO, subject) — généré au déploiement
  *   2. `git log -1` via exec() si autorisé et .git/ présent
  *   3. Lecture directe de .git/HEAD + ref file (hash + mtime, pas de subject)
+ *   4. API publique GitHub (cache 5 min sur .version_cache.json)
  *
  * Pour générer version.txt côté Plesk (actions de déploiement supplémentaires) :
  *   git log -1 --format='%H%n%cI%n%s' > version.txt
@@ -71,7 +77,78 @@ function get_deployment_info(): ?array {
         }
     }
 
+    // 4. Fallback API GitHub publique (avec cache fichier 5 min)
+    $fromGithub = fetch_github_commit();
+    if ($fromGithub !== null) {
+        return $cache = $fromGithub;
+    }
+
     return $cache = null;
+}
+
+function fetch_github_commit(): ?array {
+    $cacheFile = BASE_DIR . '/.version_cache.json';
+    if (is_readable($cacheFile)) {
+        $mtime = (int)@filemtime($cacheFile);
+        if ($mtime > 0 && (time() - $mtime) < VERSION_CACHE_TTL) {
+            $data = json_decode((string)@file_get_contents($cacheFile), true);
+            if (is_array($data) && !empty($data['hash'])) {
+                return $data;
+            }
+        }
+    }
+
+    $url = 'https://api.github.com/repos/' . GITHUB_OWNER . '/' . GITHUB_REPO . '/commits/' . GITHUB_BRANCH;
+    $body = false;
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 3,
+            CURLOPT_CONNECTTIMEOUT => 2,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_USERAGENT => 'LBTimeTracker/1.0',
+            CURLOPT_HTTPHEADER => ['Accept: application/vnd.github.v3+json'],
+        ]);
+        $body = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($status !== 200) {
+            $body = false;
+        }
+    } elseif (ini_get('allow_url_fopen')) {
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => "User-Agent: LBTimeTracker/1.0\r\nAccept: application/vnd.github.v3+json\r\n",
+                'timeout' => 3,
+                'ignore_errors' => true,
+            ],
+        ]);
+        $body = @file_get_contents($url, false, $ctx);
+    }
+
+    if ($body === false || $body === '') {
+        return null;
+    }
+
+    $data = json_decode((string)$body, true);
+    if (!is_array($data) || empty($data['sha'])) {
+        return null;
+    }
+
+    $message = (string)($data['commit']['message'] ?? '');
+    $subject = explode("\n", $message, 2)[0];
+
+    $result = [
+        'hash' => (string)$data['sha'],
+        'date' => (string)($data['commit']['committer']['date'] ?? ''),
+        'subject' => $subject,
+    ];
+
+    @file_put_contents($cacheFile, json_encode($result));
+    return $result;
 }
 
 function format_deployment_footer(): string {
