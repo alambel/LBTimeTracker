@@ -87,10 +87,17 @@ entries(
 - **Ajouter un créneau** : `ALTER TABLE entries MODIFY COLUMN period ENUM('AM','PM','EV','NT','XX')` + mettre à jour `period_codes()`/`period_labels()` dans `helpers.php`. Pas de migration data puisque ENUM étendu ne casse pas les valeurs existantes.
 
 ## Déploiement serveur PHP
-1. Upload le dossier (sans `config.php` ni `data/`).
+1. Upload le dossier (sans `config.php`).
 2. Pointer le vhost sur le dossier (DocumentRoot) ou sur `index.php`.
-3. `data/` doit être writable par PHP (auto-créé par `db_init`).
-4. 1ère visite → setup, puis login.
+3. Créer la base MariaDB côté serveur avant la première visite.
+4. 1ère visite → setup (admin + creds DB), puis login.
+
+### Action de déploiement Plesk (recommandée)
+Pour que le footer affiche les infos du **dernier commit déployé**, cocher « Activer des actions de déploiement supplémentaires » dans la config du dépôt Plesk et ajouter :
+```bash
+git log -1 --format='%H%n%cI%n%s' > version.txt
+```
+Ce fichier 3-lignes (hash, date ISO, subject) est lu par `lib/version.php`. Sans cette action, le code fallback sur `exec('git log')` puis sur la lecture directe de `.git/HEAD` (hash + mtime seulement, pas de subject).
 
 ### Sécurité d'accès web
 - **Apache** : le `.htaccess` racine couvre tout (blocage de `config.php`, `lib/`, `views/`, `.md`, `.sql`, `.bak`).

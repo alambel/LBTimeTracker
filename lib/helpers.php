@@ -49,3 +49,17 @@ function period_labels(): array {
 function valid_period(string $p): bool {
     return in_array($p, period_codes(), true);
 }
+
+function render_app_icon(int $size = 24, string $class = 'app-icon'): string {
+    $s = (int)$size;
+    return '<svg class="' . e($class) . '" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" width="' . $s . '" height="' . $s . '" aria-hidden="true">'
+        . '<circle cx="32" cy="32" r="28"/>'
+        . '<g stroke-width="3" stroke-linecap="round">'
+        . '<line x1="32" y1="7" x2="32" y2="11"/>'
+        . '<line x1="32" y1="53" x2="32" y2="57"/>'
+        . '<line x1="7" y1="32" x2="11" y2="32"/>'
+        . '<line x1="53" y1="32" x2="57" y2="32"/>'
+        . '</g>'
+        . '<path d="M23 18 L23 44 L41 44" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'
+        . '</svg>';
+}

@@ -6,7 +6,20 @@ body {
     color: #0f172a;
     font-size: 14px;
     line-height: 1.4;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
+body > .main { flex: 1; }
+body.auth-page { justify-content: center; }
+
+/* Icône applicative */
+.app-icon {
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+.brand-icon { color: #2563eb; }
 
 .nav {
     background: #1f2937;
@@ -17,7 +30,15 @@ body {
     gap: 24px;
     height: 56px;
 }
-.nav-brand { font-weight: 600; font-size: 15px; }
+.nav-brand {
+    font-weight: 600;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #fff;
+}
+.nav-brand .app-icon { color: #fff; }
 .nav-links { display: flex; gap: 4px; flex: 1; }
 .nav-links a {
     color: #cbd5e1;
@@ -84,7 +105,16 @@ body {
     flex-direction: column;
     gap: 14px;
 }
-.auth-form h1 { margin: 0 0 4px; font-size: 20px; text-align: center; }
+.auth-form h1 {
+    margin: 0 0 4px;
+    font-size: 20px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.auth-form h1 .app-icon { flex-shrink: 0; }
 .auth-subtitle { margin: 0 0 8px; font-size: 13px; text-align: center; color: #64748b; }
 .auth-form.setup-form { width: 480px; }
 .auth-form fieldset {
@@ -493,6 +523,47 @@ dialog input:focus, dialog select:focus {
 }
 .empty-state a { color: #2563eb; }
 
+/* Footer version */
+.footer {
+    padding: 14px 20px;
+    color: #94a3b8;
+    font-size: 11px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.5;
+    border-top: 1px solid #e2e8f0;
+    background: #fafbfc;
+    margin-top: 24px;
+}
+body.auth-page .footer {
+    margin-top: auto;
+    background: transparent;
+    border-top: none;
+}
+.footer-hash {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: #e2e8f0;
+    color: #475569;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+}
+.footer-subject {
+    color: #64748b;
+    max-width: 520px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.footer-date {
+    font-variant-numeric: tabular-nums;
+    color: #94a3b8;
+}
+
 /* ========== MOBILE (≤ 640px) ========== */
 @media (max-width: 640px) {
     body { font-size: 15px; }
@@ -643,6 +714,19 @@ dialog input:focus, dialog select:focus {
         box-shadow: none;
     }
     .auth-page { align-items: flex-start; padding: 0; }
+
+    /* Footer compact sur mobile */
+    .footer {
+        padding: 10px 12px;
+        font-size: 10px;
+        gap: 8px;
+        margin-top: 20px;
+    }
+    .footer-subject {
+        max-width: 100%;
+        white-space: normal;
+        text-align: center;
+    }
 }
 
 /* ========== TRÈS PETITS ÉCRANS (≤ 380px) ========== */

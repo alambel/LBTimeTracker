@@ -75,11 +75,12 @@ function handle_setup(): void {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Configuration — LB Time Tracker</title>
+    <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body class="auth-page">
     <form method="post" class="auth-form setup-form">
-        <h1>⏱ LB Time Tracker</h1>
+        <h1><?= render_app_icon(32, 'app-icon brand-icon') ?><span>LB Time Tracker</span></h1>
         <p class="auth-subtitle">Configuration initiale</p>
         <?php if ($error): ?><div class="error"><?= e($error) ?></div><?php endif; ?>
 
@@ -127,6 +128,7 @@ function handle_setup(): void {
 
         <button type="submit">Tester la connexion et enregistrer</button>
     </form>
+    <?= format_deployment_footer() ?>
 </body>
 </html><?php
 }

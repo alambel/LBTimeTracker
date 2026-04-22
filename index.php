@@ -5,6 +5,7 @@ define('BASE_DIR', __DIR__);
 define('CONFIG_PATH', BASE_DIR . '/config.php');
 
 require BASE_DIR . '/lib/helpers.php';
+require BASE_DIR . '/lib/version.php';
 require BASE_DIR . '/lib/db.php';
 require BASE_DIR . '/lib/auth.php';
 require BASE_DIR . '/lib/api.php';

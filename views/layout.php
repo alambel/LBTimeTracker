@@ -4,11 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title ?? 'LB Time Tracker') ?></title>
+    <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
     <nav class="nav">
-        <div class="nav-brand">⏱ LB Time Tracker</div>
+        <div class="nav-brand">
+            <?= render_app_icon(22) ?>
+            <span>LB Time Tracker</span>
+        </div>
         <div class="nav-links">
             <a href="index.php?action=calendar" class="<?= ($page ?? '') === 'calendar' ? 'active' : '' ?>">Calendrier</a>
             <a href="index.php?action=summary" class="<?= ($page ?? '') === 'summary' ? 'active' : '' ?>">Résumé</a>
@@ -22,6 +26,7 @@
     <main class="main">
         <?= $content ?>
     </main>
+    <?= format_deployment_footer() ?>
     <script src="assets/app.js"></script>
 </body>
 </html>
