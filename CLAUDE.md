@@ -1,10 +1,10 @@
 # LB Time Tracker — notes Claude
 
-Petit outil perso de suivi du temps par demi-journée. PHP + SQLite, zéro dépendance.
+Petit outil perso de suivi du temps par créneau (4 par jour). PHP + MariaDB, zéro dépendance Composer.
 
 ## Stack
 - PHP 8+ (utilise `str_starts_with`, nullsafe, union types)
-- SQLite via PDO (auto-créé au 1er run dans `data/timetrack.sqlite`)
+- **MariaDB / MySQL** via PDO (connexion mysql, charset utf8mb4)
 - Pas de Composer, pas de framework, pas de build
 - Vanilla JS + CSS (fichiers statiques dans `assets/`)
 
@@ -12,7 +12,7 @@ Petit outil perso de suivi du temps par demi-journée. PHP + SQLite, zéro dépe
 ```bash
 php -S localhost:8000
 ```
-1er accès → page de setup qui crée `config.php` (bcrypt hash). Après : login normal.
+1er accès → page de setup qui demande **admin (user/pwd)** et **connexion MariaDB (host, port, dbname, user, password)**. La page teste la connexion, crée les tables, puis écrit `config.php`. Pour tester localement, installer MariaDB (`brew install mariadb && brew services start mariadb`), créer une base et un user dédié.
 
 ## Routing
 Tout passe par `index.php?action=X` — pas de rewrite rule nécessaire.
@@ -40,26 +40,41 @@ Actions préfixées `api_*` → JSON + `require_auth()` renvoie 401 JSON au lieu
 | `views/calendar.php` | Grille + `<dialog>` de saisie, projets injectés en `data-projects` JSON |
 | `assets/app.js` | Handler du dialog, appel `api_save_entry`, update DOM |
 
-## Schéma SQLite
+## Schéma MariaDB
 ```sql
-projects(id, name UNIQUE, color, archived, created_at)
-entries(id, date, period CHECK IN ('AM','PM','EV','NT'), project_id FK, note, updated_at,
-        UNIQUE(date, period))  -- un seul projet par créneau
+projects(
+    id INT UNSIGNED AUTO_INCREMENT PK,
+    name VARCHAR(100) UNIQUE,
+    color VARCHAR(7) DEFAULT '#4a90e2',
+    archived TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB utf8mb4_unicode_ci
+
+entries(
+    id INT UNSIGNED AUTO_INCREMENT PK,
+    date DATE,
+    period ENUM('AM','PM','EV','NT'),
+    project_id INT UNSIGNED FK → projects(id) ON DELETE CASCADE,
+    note VARCHAR(255) NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY (date, period)
+) ENGINE=InnoDB utf8mb4_unicode_ci
 ```
 - **4 créneaux par jour** : `AM` (Matin), `PM` (Après-midi), `EV` (Soir), `NT` (Nuit). Codes et labels centralisés dans `helpers.php` (`period_codes()`, `period_labels()`, `valid_period()`).
-- `set_entry(..., projectId=null)` supprime l'entrée (la "case vide")
-- `set_entry()` utilise **DELETE + INSERT dans une transaction** (pas `ON CONFLICT DO UPDATE`, non supporté sur SQLite < 3.24 que certains serveurs utilisent encore).
-- `ON DELETE CASCADE` depuis projects → supprimer un projet efface ses saisies
-- `foreign_keys = ON` activé à l'init
-- **Migration auto** : `db_migrate()` détecte une ancienne table `entries` avec CHECK `('AM','PM')` uniquement et la recrée avec le nouveau CHECK (copie des données préservée).
+- `period` est un `ENUM` (plus propre qu'un CHECK, validation côté DB). Ajouter un nouveau créneau = `ALTER TABLE entries MODIFY COLUMN period ENUM(...)` + update `period_codes()`/`period_labels()`.
+- `set_entry(..., projectId=null)` supprime l'entrée (la "case vide").
+- `set_entry()` utilise **DELETE + INSERT dans une transaction** pour rester portable (pas de dépendance à `ON DUPLICATE KEY UPDATE` MySQL-only).
+- `ON DELETE CASCADE` sur la FK → supprimer un projet efface ses saisies.
+- `db_migrate()` se contente de `CREATE TABLE IF NOT EXISTS`. L'user DB doit avoir `CREATE, ALTER, INDEX, REFERENCES` en plus de `SELECT/INSERT/UPDATE/DELETE`.
 
 ## Sécurité
-- `config.php` en mode 0600, contient `password_hash` (bcrypt via `password_hash(PASSWORD_BCRYPT)`)
+- `config.php` en mode 0600, contient `password_hash` (bcrypt) ET les credentials MariaDB
 - Session : `httponly=true`, `samesite=Lax`, nom `lbtt`
 - Login : `hash_equals` sur username + `password_verify` sur mot de passe
 - `session_regenerate_id(true)` après login OK
 - Tout l'affichage user-provided passe par `e()` (htmlspecialchars)
-- Ignoré par git : `config.php`, `data/`, `*.sqlite`, `.idea/`
+- Requêtes SQL : 100% prepared statements (PDO avec `ATTR_EMULATE_PREPARES = false`)
+- Ignoré par git : `config.php`, `.idea/`
 
 ## Pièges connus
 - **Formulaires projets** : une `<form>` par ligne (pas de forms imbriquées dans `<table>`). 2 boutons `name="op"` avec `value=update|delete` partagent le même form.
@@ -67,8 +82,9 @@ entries(id, date, period CHECK IN ('AM','PM','EV','NT'), project_id FK, note, up
 - **Dialog natif** : `<dialog>` + `dialog.showModal()`. Fallback `setAttribute('open')` si pas supporté.
 - **Semaine démarre lundi** : `cursor->format('N')` retourne 1-7 (lundi=1), décalage = N-1 cellules vides avant le 1er du mois.
 - **Timezone** : lue depuis `config.timezone` (défaut `Europe/Zurich`), appliquée avant `session_start`.
-- **SQLite UPSERT** : bannir `INSERT ... ON CONFLICT DO UPDATE` (échoue sur SQLite < 3.24 avec *"syntax error near ON"*). Utiliser DELETE+INSERT en transaction ou `INSERT OR REPLACE`.
-- **Ajouter un créneau** : le CHECK constraint SQLite n'est pas altérable — il faut recréer la table (pattern déjà en place dans `db_migrate()`). Toujours mettre à jour `period_codes()` et `period_labels()` dans `helpers.php` en même temps que le `CHECK`.
+- **GROUP BY strict** : MySQL en mode `ONLY_FULL_GROUP_BY` (défaut 5.7+) exige que toute colonne sélectionnée soit dans le GROUP BY ou agrégée. La query `summary_between()` inclut `p.name, p.color` dans le GROUP BY pour cette raison.
+- **DB credentials perdus** : supprimer `config.php` → setup se relance. Les données MariaDB sont préservées (tables intactes).
+- **Ajouter un créneau** : `ALTER TABLE entries MODIFY COLUMN period ENUM('AM','PM','EV','NT','XX')` + mettre à jour `period_codes()`/`period_labels()` dans `helpers.php`. Pas de migration data puisque ENUM étendu ne casse pas les valeurs existantes.
 
 ## Déploiement serveur PHP
 1. Upload le dossier (sans `config.php` ni `data/`).
@@ -77,35 +93,37 @@ entries(id, date, period CHECK IN ('AM','PM','EV','NT'), project_id FK, note, up
 4. 1ère visite → setup, puis login.
 
 ### Sécurité d'accès web
-- **Apache** : le `.htaccess` racine couvre tout (blocage de `config.php`, `data/`, `lib/`, `views/`, `.md`, `.sqlite`).
-- **Plesk** (nginx proxy Apache) : les fichiers statiques (`.sqlite`, `.md`) peuvent être servis par nginx **sans passer par Apache** → `.htaccess` contourné. Il faut ajouter des directives nginx.
+- **Apache** : le `.htaccess` racine couvre tout (blocage de `config.php`, `lib/`, `views/`, `.md`, `.sql`, `.bak`).
+- **Plesk** (nginx proxy Apache) : les fichiers statiques (`.md`, `.sql`) peuvent être servis par nginx **sans passer par Apache** → `.htaccess` contourné. Il faut ajouter des directives nginx.
 
 Dans Plesk : domaine → **Paramètres Apache & nginx** → *Directives nginx supplémentaires* :
 
 ```nginx
 # LB Time Tracker — blocage des fichiers et dossiers sensibles
-location ~* \.(md|sqlite|sqlite-journal|db|log|bak|env)$ {
+location ~* \.(md|log|bak|sql|env)$ {
     deny all;
     return 404;
 }
 location = /config.php { deny all; return 404; }
-location ^~ /data/  { deny all; return 404; }
 location ^~ /lib/   { deny all; return 404; }
 location ^~ /views/ { deny all; return 404; }
 location ~ /\.(?!well-known) { deny all; return 404; }
 ```
 
-Vérifier après déploiement : `curl -I https://<domaine>/data/timetrack.sqlite` doit renvoyer 403/404, **pas** 200.
+Vérifier après déploiement : `curl -I https://<domaine>/config.php` doit renvoyer 403/404, **pas** 200.
 
-## Test end-to-end rapide
+## Test end-to-end rapide (nécessite MariaDB local)
 ```bash
+# 1. Créer la base
+mysql -e "CREATE DATABASE lbtt CHARACTER SET utf8mb4; CREATE USER 'lbtt'@'localhost' IDENTIFIED BY 'lbtt'; GRANT ALL ON lbtt.* TO 'lbtt'@'localhost';"
+# 2. Lancer le serveur
 php -S 127.0.0.1:8765 &
-curl -c /tmp/c -X POST -d 'username=test&password=testtest&password2=testtest' http://127.0.0.1:8765/index.php
-curl -c /tmp/c -b /tmp/c -X POST -d 'username=test&password=testtest' 'http://127.0.0.1:8765/index.php?action=login'
-curl -c /tmp/c -b /tmp/c -X POST -H 'Content-Type: application/json' \
-  -d '{"date":"2026-04-22","period":"AM","project_id":1,"note":"x"}' \
-  'http://127.0.0.1:8765/index.php?action=api_save_entry'
+# 3. Setup (POST tous les champs)
+curl -c /tmp/c -X POST -d 'username=admin&password=testtest&password2=testtest&db_host=127.0.0.1&db_port=3306&db_name=lbtt&db_user=lbtt&db_password=lbtt&timezone=Europe/Zurich' http://127.0.0.1:8765/index.php
+# 4. Login + save entry (cf versions précédentes)
 ```
+
+Sans MariaDB local : valider la syntaxe PHP (`php -l`), la page de setup affiche les erreurs de connexion clairement.
 
 ## Conventions de collaboration
 - **Commit ET push automatiques autorisés sur ce projet** (décidé 2026-04-22). Après un bloc de modifications terminé et vérifié : commit avec message clair, puis `git push origin main`. Le push déclenche le déploiement automatique Plesk via webhook GitHub.

@@ -16,14 +16,14 @@ ServerSignature Off
     Require all denied
 </FilesMatch>
 
-# Dumps de base de données ou logs
-<FilesMatch "\.(sqlite|sqlite-journal|db|log|bak)$">
+# Logs ou backups éventuels
+<FilesMatch "\.(log|bak|sql)$">
     Require all denied
 </FilesMatch>
 
-# Dossiers internes (données, includes PHP, git)
+# Dossiers internes (includes PHP, git)
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(data|lib|views)(/|$) - [F,L]
+    RewriteRule ^(lib|views)(/|$) - [F,L]
     RewriteRule ^\.git(/|$) - [F,L]
 </IfModule>

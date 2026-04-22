@@ -2,8 +2,6 @@
 declare(strict_types=1);
 
 define('BASE_DIR', __DIR__);
-define('DATA_DIR', BASE_DIR . '/data');
-define('DB_PATH', DATA_DIR . '/timetrack.sqlite');
 define('CONFIG_PATH', BASE_DIR . '/config.php');
 
 require BASE_DIR . '/lib/helpers.php';
@@ -19,6 +17,12 @@ if (!file_exists(CONFIG_PATH)) {
 }
 
 $config = require CONFIG_PATH;
+if (!is_array($config) || empty($config['db']) || !is_array($config['db'])) {
+    http_response_code(500);
+    echo 'Configuration invalide. Supprimer config.php pour relancer le setup.';
+    exit;
+}
+
 date_default_timezone_set($config['timezone'] ?? 'Europe/Zurich');
 
 session_name($config['session_name'] ?? 'lbtt');
@@ -30,7 +34,17 @@ session_set_cookie_params([
 ]);
 session_start();
 
-$db = db_init(DB_PATH);
+try {
+    $db = db_init($config['db']);
+} catch (Throwable $e) {
+    http_response_code(500);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "Connexion à la base de données impossible.\n";
+    echo "Vérifier les paramètres dans config.php.\n\n";
+    echo $e->getMessage();
+    exit;
+}
+
 $action = $_GET['action'] ?? 'calendar';
 
 if (str_starts_with($action, 'api_')) {

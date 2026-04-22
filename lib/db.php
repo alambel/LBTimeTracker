@@ -1,80 +1,47 @@
 <?php
-function db_init(string $path): PDO {
-    $dir = dirname($path);
-    if (!is_dir($dir)) {
-        mkdir($dir, 0755, true);
-    }
-    // Ceinture + bretelles : empêcher l'accès web direct au dossier data/
-    // (complémentaire au .htaccess racine, utile si le serveur ignore le
-    // parent ou si data/ est déplacé manuellement).
-    $htaccess = $dir . '/.htaccess';
-    if (!file_exists($htaccess)) {
-        @file_put_contents($htaccess, "Require all denied\n");
-    }
-    $db = new PDO('sqlite:' . $path);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    $db->exec('PRAGMA foreign_keys = ON');
-    db_migrate($db);
-    return $db;
+function db_init(array $dbConfig): PDO {
+    $host = (string)($dbConfig['host'] ?? 'localhost');
+    $port = (int)($dbConfig['port'] ?? 3306);
+    $dbname = (string)($dbConfig['dbname'] ?? '');
+    $user = (string)($dbConfig['user'] ?? '');
+    $pass = (string)($dbConfig['password'] ?? '');
+    $charset = (string)($dbConfig['charset'] ?? 'utf8mb4');
+
+    $dsn = 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $dbname . ';charset=' . $charset;
+    $pdo = new PDO($dsn, $user, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ]);
+    db_migrate($pdo);
+    return $pdo;
 }
 
 function db_migrate(PDO $db): void {
     $db->exec("
         CREATE TABLE IF NOT EXISTS projects (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            color TEXT NOT NULL DEFAULT '#4a90e2',
-            archived INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            color VARCHAR(7) NOT NULL DEFAULT '#4a90e2',
+            archived TINYINT(1) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_name (name)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
-
-    $entriesSql = (string)$db->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='entries'")->fetchColumn();
-
-    if ($entriesSql === '') {
-        $db->exec("
-            CREATE TABLE entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT NOT NULL,
-                period TEXT NOT NULL CHECK (period IN ('AM','PM','EV','NT')),
-                project_id INTEGER NOT NULL,
-                note TEXT,
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(date, period),
-                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-            )
-        ");
-    } elseif (strpos($entriesSql, "'EV'") === false) {
-        $db->exec('BEGIN');
-        try {
-            $db->exec("
-                CREATE TABLE entries_new (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    date TEXT NOT NULL,
-                    period TEXT NOT NULL CHECK (period IN ('AM','PM','EV','NT')),
-                    project_id INTEGER NOT NULL,
-                    note TEXT,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(date, period),
-                    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-                )
-            ");
-            $db->exec("
-                INSERT INTO entries_new (id, date, period, project_id, note, updated_at)
-                SELECT id, date, period, project_id, note, updated_at FROM entries
-            ");
-            $db->exec("DROP TABLE entries");
-            $db->exec("ALTER TABLE entries_new RENAME TO entries");
-            $db->exec('COMMIT');
-        } catch (Throwable $e) {
-            $db->exec('ROLLBACK');
-            throw $e;
-        }
-    }
-
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_entries_project ON entries(project_id)");
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS entries (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            date DATE NOT NULL,
+            period ENUM('AM','PM','EV','NT') NOT NULL,
+            project_id INT UNSIGNED NOT NULL,
+            note VARCHAR(255) NULL,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_date_period (date, period),
+            KEY idx_date (date),
+            KEY idx_project (project_id),
+            CONSTRAINT fk_entries_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
 }
 
 function get_projects(PDO $db, bool $includeArchived = false): array {
@@ -107,7 +74,8 @@ function delete_project(PDO $db, int $id): void {
 
 function get_entries_between(PDO $db, string $from, string $to): array {
     $stmt = $db->prepare('
-        SELECT e.*, p.name AS project_name, p.color AS project_color
+        SELECT e.id, e.date, e.period, e.project_id, e.note, e.updated_at,
+               p.name AS project_name, p.color AS project_color
         FROM entries e
         JOIN projects p ON p.id = e.project_id
         WHERE e.date BETWEEN ? AND ?
@@ -123,13 +91,12 @@ function set_entry(PDO $db, string $date, string $period, ?int $projectId, ?stri
         $stmt->execute([$date, $period]);
         return;
     }
-    // Compatible avec SQLite < 3.24 (pas d'UPSERT "ON CONFLICT DO UPDATE")
     $noteValue = ($note !== null && $note !== '') ? $note : null;
     $db->beginTransaction();
     try {
         $del = $db->prepare('DELETE FROM entries WHERE date = ? AND period = ?');
         $del->execute([$date, $period]);
-        $ins = $db->prepare('INSERT INTO entries (date, period, project_id, note, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)');
+        $ins = $db->prepare('INSERT INTO entries (date, period, project_id, note) VALUES (?, ?, ?, ?)');
         $ins->execute([$date, $period, $projectId, $noteValue]);
         $db->commit();
     } catch (Throwable $e) {
@@ -145,7 +112,7 @@ function summary_between(PDO $db, string $from, string $to): array {
                COUNT(e.id) / 2.0 AS full_days
         FROM projects p
         LEFT JOIN entries e ON e.project_id = p.id AND e.date BETWEEN ? AND ?
-        GROUP BY p.id
+        GROUP BY p.id, p.name, p.color
         HAVING half_days > 0
         ORDER BY half_days DESC, p.name
     ");
