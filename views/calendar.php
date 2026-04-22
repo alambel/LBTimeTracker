@@ -37,13 +37,17 @@
         $cursor = clone $first;
         $today = date('Y-m-d');
         $periods = period_codes();
+        $weekdayLabels = ['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
         while ($cursor <= $last) {
             $date = $cursor->format('Y-m-d');
             $isToday = $date === $today;
             $isWeekend = (int)$cursor->format('N') >= 6;
             $classes = 'cal-cell' . ($isToday ? ' today' : '') . ($isWeekend ? ' weekend' : '');
             echo '<div class="' . $classes . '">';
-            echo '<div class="cal-date"><span>' . $cursor->format('j') . '</span></div>';
+            echo '<div class="cal-date">';
+            echo '<span class="cal-weekday">' . $weekdayLabels[(int)$cursor->format('N')] . '</span>';
+            echo '<span class="cal-daynum">' . $cursor->format('j') . '</span>';
+            echo '</div>';
             foreach ($periods as $period) {
                 $entry = $byKey[$date . '_' . $period] ?? null;
                 $style = $entry ? ' style="background:' . e($entry['project_color']) . '"' : '';

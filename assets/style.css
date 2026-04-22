@@ -203,9 +203,12 @@ body {
     font-weight: 500;
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     height: 20px;
+    gap: 4px;
 }
-.cal-cell.today .cal-date span {
+.cal-weekday { display: none; }
+.cal-cell.today .cal-daynum {
     background: #2563eb;
     color: #fff;
     border-radius: 999px;
@@ -490,11 +493,163 @@ dialog input:focus, dialog select:focus {
 }
 .empty-state a { color: #2563eb; }
 
+/* ========== MOBILE (≤ 640px) ========== */
 @media (max-width: 640px) {
-    .cal-cell { min-height: 128px; padding: 4px; gap: 2px; }
-    .cal-slot { font-size: 10px; min-height: 22px; padding: 2px 5px; }
-    .cal-slot .slot-project { font-size: 11px; }
-    .cal-slot .slot-label { min-width: 16px; }
-    .main { padding: 12px; }
-    .month-nav h1 { min-width: 120px; font-size: 18px; }
+    body { font-size: 15px; }
+    .main { padding: 10px; }
+
+    /* Nav compacte */
+    .nav { height: 50px; padding: 0 10px; gap: 8px; }
+    .nav-brand { font-size: 14px; flex-shrink: 0; }
+    .nav-links { gap: 0; flex: 1; justify-content: center; }
+    .nav-links a { padding: 6px 8px; font-size: 13px; }
+    .nav-user { font-size: 12px; flex-shrink: 0; }
+    .nav-user span { display: none; }
+
+    /* Header de page */
+    .page-header { margin-bottom: 14px; }
+    .page-header h1 { font-size: 19px; }
+    .month-nav { gap: 6px; width: 100%; justify-content: space-between; }
+    .month-nav h1 { flex: 1; min-width: 0; text-align: center; font-size: 17px; }
+    .btn-icon { width: 40px; height: 40px; font-size: 22px; }
+
+    /* Calendrier — vue liste verticale */
+    .cal-header { display: none; }
+    .cal-grid {
+        display: flex;
+        flex-direction: column;
+    }
+    .cal-cell.cal-empty { display: none; }
+    .cal-cell {
+        display: grid;
+        grid-template-columns: 56px repeat(4, 1fr);
+        gap: 5px;
+        align-items: stretch;
+        padding: 8px 10px;
+        min-height: auto;
+        border-right: none;
+        border-top: 1px solid #e2e8f0;
+    }
+    .cal-cell:first-child { border-top: none; }
+    .cal-cell.weekend { background: #f1f5f9; }
+
+    .cal-date {
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        height: auto;
+        gap: 0;
+    }
+    .cal-weekday {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .cal-daynum {
+        font-size: 19px;
+        font-weight: 600;
+        color: #0f172a;
+        line-height: 1.1;
+    }
+    .cal-cell.today .cal-daynum {
+        width: 30px; height: 30px;
+        font-size: 15px;
+        margin-top: 2px;
+    }
+
+    /* Créneaux en rangée, empilés verticalement */
+    .cal-slot {
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 0;
+        text-align: center;
+        padding: 4px 2px;
+        min-height: 48px;
+        font-size: 10px;
+    }
+    .cal-slot .slot-label {
+        min-width: 0;
+        font-size: 9px;
+        opacity: 0.65;
+    }
+    .cal-slot.filled .slot-label { opacity: 0.85; }
+    .cal-slot .slot-project {
+        font-size: 11px;
+        line-height: 1.1;
+    }
+
+    /* Dialog plein-écran confortable */
+    dialog {
+        padding: 18px;
+        width: 94vw;
+        border-radius: 14px;
+    }
+    dialog h3 { font-size: 16px; }
+
+    /* Summary — filtres empilés */
+    .filter-form {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        align-items: end;
+    }
+    .filter-form label { width: 100%; }
+    .filter-form input { width: 100%; }
+    .filter-form button { grid-column: 1 / -1; }
+    .filter-form .btn-link { grid-column: 1 / -1; text-align: center; padding: 6px; }
+    .summary-kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kpi { padding: 14px 16px; }
+    .kpi-value { font-size: 24px; }
+    .summary-table th, .summary-table td { padding: 8px 10px; font-size: 13px; }
+
+    /* Projets — formulaire empilé */
+    .project-new {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 14px;
+    }
+    .project-new label { flex-direction: row; align-items: center; gap: 10px; }
+    .project-new input[type="text"] { flex: 1; min-width: 0; width: 100%; }
+    .project-new input[type="color"] { width: 44px; height: 40px; flex-shrink: 0; }
+    .project-new button { width: 100%; padding: 12px; font-size: 15px; }
+
+    .project-row {
+        gap: 8px;
+        padding: 10px 12px;
+    }
+    .project-row input[type="text"] {
+        min-width: 0;
+        flex: 1 1 100%;
+        order: -1;
+    }
+    .project-row button {
+        flex: 1;
+        padding: 10px 8px;
+        min-width: 0;
+    }
+
+    /* Auth / setup */
+    .auth-form, .auth-form.setup-form {
+        width: 100%;
+        max-width: 100%;
+        padding: 20px;
+        border-radius: 0;
+        box-shadow: none;
+    }
+    .auth-page { align-items: flex-start; padding: 0; }
+}
+
+/* ========== TRÈS PETITS ÉCRANS (≤ 380px) ========== */
+@media (max-width: 380px) {
+    .cal-cell { grid-template-columns: 48px repeat(4, 1fr); padding: 6px 8px; gap: 3px; }
+    .cal-slot { min-height: 44px; padding: 2px; }
+    .cal-slot .slot-project { font-size: 10px; }
+    .nav-brand { display: none; }
+    .summary-table .bar-col { display: none; }
 }
