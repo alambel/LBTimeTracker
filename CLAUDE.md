@@ -108,6 +108,7 @@ curl -c /tmp/c -b /tmp/c -X POST -H 'Content-Type: application/json' \
 ```
 
 ## Conventions de collaboration
-- **Commit automatique autorisé sur ce projet** (override explicite de la règle globale, décidé 2026-04-22). Après un bloc de modifications terminé et vérifié, créer un commit avec un message clair — pas besoin de demander.
+- **Commit ET push automatiques autorisés sur ce projet** (décidé 2026-04-22). Après un bloc de modifications terminé et vérifié : commit avec message clair, puis `git push origin main`. Le push déclenche le déploiement automatique Plesk via webhook GitHub.
 - UI en français, code/comments en français ou anglais indifféremment.
 - Pas de dépendance externe à ajouter sans raison forte (l'esprit = 1-dossier-upload-ça-marche).
+- **Remote** : `git@github.com:alambel/LBTimeTracker.git` (SSH).
