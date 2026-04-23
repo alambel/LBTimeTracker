@@ -23,7 +23,7 @@ function api_dispatch(string $action, PDO $db): void {
                 if (isset($data['project_id']) && $data['project_id'] !== null && $data['project_id'] !== '') {
                     $projectId = (int)$data['project_id'];
                 }
-                $note = isset($data['note']) ? trim((string)$data['note']) : null;
+                $note = isset($data['note']) ? sanitize_note((string)$data['note']) : null;
                 if (!valid_date($date) || !valid_period($period)) {
                     http_response_code(400);
                     echo json_encode(['error' => 'Invalid params']);
@@ -56,7 +56,7 @@ function api_dispatch(string $action, PDO $db): void {
                 if (isset($data['project_id']) && $data['project_id'] !== null && $data['project_id'] !== '') {
                     $projectId = (int)$data['project_id'];
                 }
-                $note = isset($data['note']) ? trim((string)$data['note']) : null;
+                $note = isset($data['note']) ? sanitize_note((string)$data['note']) : null;
                 if ($projectId !== null && !get_project($db, $projectId)) {
                     http_response_code(404);
                     echo json_encode(['error' => 'Project not found']);
@@ -69,7 +69,8 @@ function api_dispatch(string $action, PDO $db): void {
         http_response_code(404);
         echo json_encode(['error' => 'Unknown action']);
     } catch (Throwable $e) {
+        error_log('LBTT API error: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => $e->getMessage()]);
+        echo json_encode(['error' => 'Internal error']);
     }
 }

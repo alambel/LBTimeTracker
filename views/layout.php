@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#fafaf7">
     <title><?= e($title ?? 'LB Time Tracker') ?></title>
+    <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

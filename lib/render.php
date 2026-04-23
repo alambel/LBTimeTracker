@@ -62,7 +62,7 @@ function render_summary(PDO $db): void {
         foreach ($rows as $r) {
             $pct = $total ? 100 * $r['half_days'] / $total : 0;
             fputcsv($out, [
-                $r['name'],
+                sanitize_csv_cell((string)$r['name']),
                 $r['half_days'],
                 number_format((float)$r['full_days'], 1, '.', ''),
                 number_format($pct, 1, '.', ''),
@@ -114,17 +114,18 @@ function _fr_short_date(string $date): string {
 function render_projects(PDO $db): void {
     $error = null;
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        csrf_check_form_or_die();
         $op = $_POST['op'] ?? '';
         try {
             if ($op === 'create') {
-                $name = trim($_POST['name'] ?? '');
-                $color = $_POST['color'] ?? '#c45a2e';
+                $name = sanitize_name((string)($_POST['name'] ?? ''));
+                $color = sanitize_hex_color((string)($_POST['color'] ?? ''));
                 if ($name === '') { throw new RuntimeException('Nom requis'); }
                 create_project($db, $name, $color);
             } elseif ($op === 'update') {
                 $id = (int)($_POST['id'] ?? 0);
-                $name = trim($_POST['name'] ?? '');
-                $color = $_POST['color'] ?? '#c45a2e';
+                $name = sanitize_name((string)($_POST['name'] ?? ''));
+                $color = sanitize_hex_color((string)($_POST['color'] ?? ''));
                 $archived = !empty($_POST['archived']);
                 if ($id <= 0 || $name === '') { throw new RuntimeException('Paramètres invalides'); }
                 update_project($db, $id, $name, $color, $archived);

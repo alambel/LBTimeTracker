@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1a1a1a">
     <title><?= e($title ?? 'Connexion — LB Time Tracker') ?></title>
+    <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,6 +37,7 @@
     </div>
     <div class="lbtt-login-right">
         <form method="post" action="index.php?action=login" class="lbtt-login-form">
+            <?= csrf_field() ?>
             <div class="lbtt-label eyebrow">Connexion</div>
             <h1>se connecter.</h1>
             <?php if ($error ?? null): ?><div class="lbtt-error"><?= e($error) ?></div><?php endif; ?>

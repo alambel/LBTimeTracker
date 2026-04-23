@@ -7,6 +7,11 @@
 (function () {
     'use strict';
 
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    function authHeaders() {
+        return { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN };
+    }
+
     // ===== Setup wizard =====
     (function initSetup() {
         const form = document.querySelector('[data-setup-wizard]');
@@ -180,7 +185,7 @@
                 if (targets.length === 1) {
                     r = await fetch('index.php?action=api_save_entry', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         credentials: 'same-origin',
                         body: JSON.stringify({
                             date: targets[0].date,
@@ -192,7 +197,7 @@
                 } else {
                     r = await fetch('index.php?action=api_batch_save', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         credentials: 'same-origin',
                         body: JSON.stringify({ targets: targets, project_id: projectId }),
                     });

@@ -5,12 +5,15 @@ define('BASE_DIR', __DIR__);
 define('CONFIG_PATH', BASE_DIR . '/config.php');
 
 require BASE_DIR . '/lib/helpers.php';
+require BASE_DIR . '/lib/security.php';
 require BASE_DIR . '/lib/version.php';
 require BASE_DIR . '/lib/db.php';
 require BASE_DIR . '/lib/auth.php';
 require BASE_DIR . '/lib/api.php';
 require BASE_DIR . '/lib/setup.php';
 require BASE_DIR . '/lib/render.php';
+
+send_security_headers();
 
 if (!file_exists(CONFIG_PATH)) {
     handle_setup();
@@ -30,6 +33,7 @@ session_name($config['session_name'] ?? 'lbtt');
 session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
+    'secure' => is_https(),
     'httponly' => true,
     'samesite' => 'Lax',
 ]);
@@ -39,10 +43,10 @@ try {
     $db = db_init($config['db']);
 } catch (Throwable $e) {
     http_response_code(500);
+    error_log('LBTT db_init failed: ' . $e->getMessage());
     header('Content-Type: text/plain; charset=utf-8');
-    echo "Connexion à la base de données impossible.\n";
-    echo "Vérifier les paramètres dans config.php.\n\n";
-    echo $e->getMessage();
+    echo "Service momentanément indisponible.\n";
+    echo "Contactez l'administrateur.";
     exit;
 }
 
@@ -50,6 +54,7 @@ $action = $_GET['action'] ?? 'calendar';
 
 if (str_starts_with($action, 'api_')) {
     require_auth();
+    csrf_check_api_or_die();
     header('Content-Type: application/json; charset=utf-8');
     api_dispatch($action, $db);
     exit;

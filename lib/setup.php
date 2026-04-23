@@ -23,13 +23,17 @@ function handle_setup(): void {
 
         if ($u === '' || $p === '') {
             $error = 'Nom d\'utilisateur et mot de passe admin requis.';
+        } elseif (mb_strlen($u) > 64) {
+            $error = 'Nom d\'utilisateur trop long (64 car. max).';
         } elseif ($p !== $p2) {
             $error = 'Les mots de passe admin ne correspondent pas.';
         } elseif (strlen($p) < 6) {
             $error = 'Mot de passe admin trop court (6 caractères minimum).';
-        } elseif ($dbHost === '' || $dbName === '' || $dbUser === '' || $dbPort <= 0) {
-            $error = 'Paramètres base de données incomplets.';
-        } elseif (!@date_default_timezone_set($tz)) {
+        } elseif (strlen($p) > 128) {
+            $error = 'Mot de passe trop long (128 car. max).';
+        } elseif ($dbHost === '' || $dbName === '' || $dbUser === '' || $dbPort <= 0 || $dbPort > 65535) {
+            $error = 'Paramètres base de données incomplets ou invalides.';
+        } elseif (!valid_timezone($tz)) {
             $error = 'Timezone invalide (ex: Europe/Zurich).';
         } elseif (!is_writable(BASE_DIR)) {
             $error = 'Le répertoire de l\'application n\'est pas accessible en écriture.';
@@ -46,6 +50,7 @@ function handle_setup(): void {
                 $testDb = db_init($dbConfig);
                 unset($testDb);
             } catch (Throwable $e) {
+                // Pour le setup on garde le message (premier run, l'admin débugue sa config)
                 $error = 'Connexion MariaDB impossible : ' . $e->getMessage();
             }
 

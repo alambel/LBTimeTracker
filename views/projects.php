@@ -11,6 +11,7 @@ $palette = ['#c45a2e', '#2d4a3e', '#c9a24a', '#5a6f8a', '#8a6a4a', '#a14a3a', '#
 <?php if ($error ?? null): ?><div class="lbtt-error"><?= e($error) ?></div><?php endif; ?>
 
 <form method="post" class="lbtt-proj-new" data-new-project>
+    <?= csrf_field() ?>
     <input type="hidden" name="op" value="create">
     <input type="hidden" name="color" value="<?= e($palette[0]) ?>" data-new-project-color>
     <div class="lbtt-proj-new-input">
@@ -44,6 +45,7 @@ $palette = ['#c45a2e', '#2d4a3e', '#c9a24a', '#5a6f8a', '#8a6a4a', '#a14a3a', '#
         $rowCls = 'lbtt-proj-row' . (!empty($p['archived']) ? ' archived' : '');
     ?>
         <form method="post" class="<?= $rowCls ?>">
+            <?= csrf_field() ?>
             <input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
             <input type="hidden" name="name" value="<?= e($p['name']) ?>">
             <input type="hidden" name="color" value="<?= e($p['color']) ?>">

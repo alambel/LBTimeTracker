@@ -114,6 +114,8 @@ location ~* \.(md|log|bak|sql|env)$ {
 location = /config.php { deny all; return 404; }
 location ^~ /lib/   { deny all; return 404; }
 location ^~ /views/ { deny all; return 404; }
+location ^~ /data/  { deny all; return 404; }
+location ^~ /design_handoff_lbtt_redesign/ { deny all; return 404; }
 location ~ /\.(?!well-known) { deny all; return 404; }
 ```
 

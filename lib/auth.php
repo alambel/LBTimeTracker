@@ -19,17 +19,29 @@ function require_auth(): void {
 function handle_login(array $config): void {
     $error = null;
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $u = trim($_POST['username'] ?? '');
-        $p = (string)($_POST['password'] ?? '');
-        $expectedUser = (string)($config['username'] ?? '');
-        $hash = (string)($config['password_hash'] ?? '');
-        if ($u !== '' && hash_equals($expectedUser, $u) && password_verify($p, $hash)) {
-            session_regenerate_id(true);
-            $_SESSION['user'] = $u;
-            header('Location: index.php?action=calendar');
-            exit;
+        // Rate limit d'abord (avant CSRF pour ne pas coûter de bcrypt sur flood)
+        $blocked = login_ratelimit_check();
+        if ($blocked !== null) {
+            $error = $blocked;
+        } elseif (!csrf_valid((string)($_POST['_csrf'] ?? ''))) {
+            $error = 'Jeton de formulaire expiré. Rafraîchir la page et réessayer.';
+        } else {
+            $u = trim($_POST['username'] ?? '');
+            $p = (string)($_POST['password'] ?? '');
+            $expectedUser = (string)($config['username'] ?? '');
+            $hash = (string)($config['password_hash'] ?? '');
+            if ($u !== '' && hash_equals($expectedUser, $u) && password_verify($p, $hash)) {
+                session_regenerate_id(true);
+                $_SESSION['user'] = $u;
+                login_ratelimit_reset();
+                header('Location: index.php?action=calendar');
+                exit;
+            }
+            login_ratelimit_register_failure();
+            // Ralentit le brute force (timing constant, pas info enumeration)
+            usleep(300000); // 300 ms
+            $error = 'Identifiants incorrects';
         }
-        $error = 'Identifiants incorrects';
     }
     $title = 'Connexion — LB Time Tracker';
     include BASE_DIR . '/views/login.php';
