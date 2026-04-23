@@ -21,10 +21,10 @@ ServerSignature Off
     Require all denied
 </FilesMatch>
 
-# Dossiers internes (includes PHP, design handoff, data runtime, git)
+# Dossiers internes (includes PHP, design handoff, data runtime, scripts, backups, git)
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(lib|views|data|design_handoff_lbtt_redesign)(/|$) - [F,L]
+    RewriteRule ^(lib|views|data|scripts|backups|design_handoff_lbtt_redesign)(/|$) - [F,L]
     RewriteRule ^\.git(/|$) - [F,L]
 </IfModule>
 

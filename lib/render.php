@@ -1,9 +1,9 @@
 <?php
-function render_layout(string $title, string $page, string $content): void {
+function render_layout(string $title, string $page, string $content, ?PDO $db = null): void {
     include BASE_DIR . '/views/layout.php';
 }
 
-function render_logout_confirm(): void {
+function render_logout_confirm(PDO $db): void {
     $title = 'Déconnexion — LBTimeTracker';
     $page = 'logout';
     ob_start();
@@ -25,28 +25,36 @@ function render_logout_confirm(): void {
     </form>
     <?php
     $content = ob_get_clean();
-    render_layout($title, $page, $content);
+    render_layout($title, $page, $content, $db ?? null);
 }
 
+/* ================================================================
+ * Calendar (personnel — entrées de l'user courant)
+ * ================================================================ */
 function render_calendar(PDO $db): void {
+    $me = current_user_row($db);
+    if (!$me) { header('Location: index.php?action=login'); exit; }
+    $uid = (int)$me['id'];
+    $slotMode = (string)$me['slot_mode'];
+
     $month = $_GET['month'] ?? date('Y-m');
     if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
         $month = date('Y-m');
     }
     [$from, $to] = month_bounds($month);
-    $entries = get_entries_between($db, $from, $to);
+    $entries = get_entries_between($db, $uid, $from, $to);
     $byKey = [];
     foreach ($entries as $ent) {
         $byKey[$ent['date'] . '_' . $ent['period']] = $ent;
     }
-    $projects = get_projects($db);             // active only
+    $projects = get_projects_for_user($db, $uid, false);
     $cells = build_month_cells($month);
     [$year, $mm] = array_map('intval', explode('-', $month));
     $monthLabel = month_name_fr($mm);
     $prevMonth = shift_month($month, -1);
     $nextMonth = shift_month($month, +1);
 
-    // Compute dominant project and total half-days
+    // Dominant project (par nb entrées)
     $byProjectCount = [];
     foreach ($entries as $ent) {
         $pid = (int)$ent['project_id'];
@@ -54,11 +62,14 @@ function render_calendar(PDO $db): void {
     }
     arsort($byProjectCount);
     $topId = array_key_first($byProjectCount);
-    $topProject = null;
-    if ($topId !== null) {
-        $topProject = get_project($db, (int)$topId);
+    $topProject = $topId !== null ? get_project($db, (int)$topId) : null;
+
+    // Total en heures (minutes → h)
+    $totalMinutes = 0;
+    foreach ($entries as $ent) {
+        $totalMinutes += slot_minutes_for_code((string)$ent['period']);
     }
-    $totalHalfDays = count($entries);
+    $totalHours = $totalMinutes / 60.0;
 
     $title = 'Calendrier — ' . month_name_fr($mm) . ' ' . $year;
     $page = 'calendar';
@@ -66,30 +77,40 @@ function render_calendar(PDO $db): void {
     ob_start();
     include BASE_DIR . '/views/calendar.php';
     $content = ob_get_clean();
-    render_layout($title, $page, $content);
+    render_layout($title, $page, $content, $db ?? null);
 }
 
+/* ================================================================
+ * Summary (personnel, totaux en heures)
+ * ================================================================ */
 function render_summary(PDO $db): void {
+    $me = current_user_row($db);
+    if (!$me) { header('Location: index.php?action=login'); exit; }
+    $uid = (int)$me['id'];
+    $slotMode = (string)$me['slot_mode'];
+
     $from = $_GET['from'] ?? date('Y-m') . '-01';
     $to = $_GET['to'] ?? date('Y-m-t');
     if (!valid_date($from)) { $from = date('Y-m') . '-01'; }
     if (!valid_date($to)) { $to = date('Y-m-t'); }
 
-    $rows = summary_between($db, $from, $to);
-    $total = 0;
-    foreach ($rows as $r) { $total += (int)$r['half_days']; }
+    $rows = summary_between_for_user($db, $uid, $from, $to);
+    $totalMinutes = 0;
+    foreach ($rows as $r) { $totalMinutes += (int)$r['total_minutes']; }
 
     if (($_GET['format'] ?? '') === 'csv') {
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="timetrack_' . $from . '_' . $to . '.csv"');
         $out = fopen('php://output', 'w');
-        fputcsv($out, ['Projet', 'Demi-journées', 'Jours équivalents', '% du total']);
+        fputcsv($out, ['Projet', 'Saisies', 'Heures', 'Jours équiv. (8h)', '% du total']);
         foreach ($rows as $r) {
-            $pct = $total ? 100 * $r['half_days'] / $total : 0;
+            $pct = $totalMinutes ? 100 * (int)$r['total_minutes'] / $totalMinutes : 0;
+            $h = (int)$r['total_minutes'] / 60;
             fputcsv($out, [
                 sanitize_csv_cell((string)$r['name']),
-                $r['half_days'],
-                number_format((float)$r['full_days'], 1, '.', ''),
+                (int)$r['entry_count'],
+                number_format($h, 2, '.', ''),
+                number_format($h / 8, 2, '.', ''),
                 number_format($pct, 1, '.', ''),
             ]);
         }
@@ -97,28 +118,17 @@ function render_summary(PDO $db): void {
         return;
     }
 
-    // Ribbon data
     $rangeDays = date_range($from, $to);
     $daysCount = count($rangeDays);
-    $possibleHalfDays = $daysCount * 4;
-    $completeness = $possibleHalfDays > 0 ? ($total / $possibleHalfDays) * 100 : 0;
-
-    $entries = get_entries_between($db, $from, $to);
+    $entries = get_entries_between($db, $uid, $from, $to);
     $byKey = [];
     foreach ($entries as $ent) {
         $byKey[$ent['date'] . '_' . $ent['period']] = $ent;
     }
 
-    $archivedCount = 0;
-    $allProjects = get_projects($db, true);
-    foreach ($allProjects as $p) {
-        if (!empty($p['archived'])) $archivedCount++;
-    }
+    $totalHours = $totalMinutes / 60.0;
+    $periodCodes = period_codes($slotMode);
 
-    // Short French date labels for ribbon ends
-    $fromLabel = strtoupper(date('d M', strtotime($from)));
-    $toLabel = strtoupper(date('d M', strtotime($to)));
-    // French month abbreviations
     $fromLabel = _fr_short_date($from);
     $toLabel = _fr_short_date($to);
 
@@ -127,7 +137,7 @@ function render_summary(PDO $db): void {
     ob_start();
     include BASE_DIR . '/views/summary.php';
     $content = ob_get_clean();
-    render_layout($title, $page, $content);
+    render_layout($title, $page, $content, $db ?? null);
 }
 
 function _fr_short_date(string $date): string {
@@ -136,7 +146,14 @@ function _fr_short_date(string $date): string {
     return $dt->format('d') . ' ' . $abbr[(int)$dt->format('n')];
 }
 
+/* ================================================================
+ * Projects (liste des projets de l'user + CRUD + gestion membres)
+ * ================================================================ */
 function render_projects(PDO $db): void {
+    $me = current_user_row($db);
+    if (!$me) { header('Location: index.php?action=login'); exit; }
+    $uid = (int)$me['id'];
+
     $error = null;
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         csrf_check_form_or_die();
@@ -146,9 +163,10 @@ function render_projects(PDO $db): void {
                 $name = sanitize_name((string)($_POST['name'] ?? ''));
                 $color = sanitize_hex_color((string)($_POST['color'] ?? ''));
                 if ($name === '') { throw new RuntimeException('Nom requis'); }
-                create_project($db, $name, $color);
+                create_project($db, $name, $color, $uid);
             } elseif ($op === 'update') {
                 $id = (int)($_POST['id'] ?? 0);
+                if (!user_is_project_admin($db, $id, $uid)) { throw new RuntimeException('Admin du projet requis.'); }
                 $name = sanitize_name((string)($_POST['name'] ?? ''));
                 $color = sanitize_hex_color((string)($_POST['color'] ?? ''));
                 $archived = !empty($_POST['archived']);
@@ -156,15 +174,39 @@ function render_projects(PDO $db): void {
                 update_project($db, $id, $name, $color, $archived);
             } elseif ($op === 'archive_toggle') {
                 $id = (int)($_POST['id'] ?? 0);
-                if ($id <= 0) { throw new RuntimeException('ID invalide'); }
+                if (!user_is_project_admin($db, $id, $uid)) { throw new RuntimeException('Admin du projet requis.'); }
                 $p = get_project($db, $id);
-                if ($p) {
-                    update_project($db, $id, $p['name'], $p['color'], empty($p['archived']));
-                }
-            } elseif ($op === 'delete') {
+                if ($p) { update_project($db, $id, $p['name'], $p['color'], empty($p['archived'])); }
+            } elseif ($op === 'add_member') {
                 $id = (int)($_POST['id'] ?? 0);
-                if ($id <= 0) { throw new RuntimeException('ID invalide'); }
-                delete_project($db, $id);
+                if (!user_is_project_admin($db, $id, $uid)) { throw new RuntimeException('Admin du projet requis.'); }
+                $username = trim((string)($_POST['member_username'] ?? ''));
+                $role = (string)($_POST['member_role'] ?? 'member');
+                $target = get_user_by_username($db, $username);
+                if (!$target) { throw new RuntimeException('Utilisateur « ' . $username . ' » introuvable.'); }
+                if (!empty($target['archived'])) { throw new RuntimeException('Utilisateur archivé.'); }
+                add_project_member($db, $id, (int)$target['id'], $role);
+            } elseif ($op === 'set_member_role') {
+                $id = (int)($_POST['id'] ?? 0);
+                if (!user_is_project_admin($db, $id, $uid)) { throw new RuntimeException('Admin du projet requis.'); }
+                $targetId = (int)($_POST['user_id'] ?? 0);
+                $role = (string)($_POST['role'] ?? 'member');
+                if ($targetId === $uid && $role !== 'admin' && project_admin_count($db, $id) <= 1) {
+                    throw new RuntimeException('Impossible de retirer le dernier admin.');
+                }
+                set_project_member_role($db, $id, $targetId, $role);
+            } elseif ($op === 'remove_member') {
+                $id = (int)($_POST['id'] ?? 0);
+                $targetId = (int)($_POST['user_id'] ?? 0);
+                // L'user peut se retirer lui-même ; sinon admin requis
+                if ($targetId !== $uid && !user_is_project_admin($db, $id, $uid)) {
+                    throw new RuntimeException('Admin du projet requis.');
+                }
+                $targetRole = get_project_member_role($db, $id, $targetId);
+                if ($targetRole === 'admin' && project_admin_count($db, $id) <= 1) {
+                    throw new RuntimeException('Impossible de retirer le dernier admin.');
+                }
+                remove_project_member($db, $id, $targetId);
             }
             header('Location: index.php?action=projects');
             exit;
@@ -172,12 +214,165 @@ function render_projects(PDO $db): void {
             $error = $e->getMessage();
         }
     }
-    $projects = get_projects($db, true);
-    $entryCounts = project_entry_counts($db);
+    $projects = get_projects_for_user($db, $uid, true);
+    $entryCounts = project_entry_counts_for_user($db, $uid);
+    // Membres par projet (indexé par project_id)
+    $membersByProject = [];
+    foreach ($projects as $p) {
+        $membersByProject[(int)$p['id']] = get_project_members($db, (int)$p['id']);
+    }
+
     $title = 'Projets — LBTimeTracker';
     $page = 'projects';
     ob_start();
     include BASE_DIR . '/views/projects.php';
     $content = ob_get_clean();
-    render_layout($title, $page, $content);
+    render_layout($title, $page, $content, $db ?? null);
+}
+
+/* ================================================================
+ * Team view (calendrier d'un projet, toutes saisies des membres)
+ * ================================================================ */
+function render_project_team(PDO $db): void {
+    $me = current_user_row($db);
+    if (!$me) { header('Location: index.php?action=login'); exit; }
+    $uid = (int)$me['id'];
+
+    $projectId = (int)($_GET['id'] ?? 0);
+    if ($projectId <= 0 || !user_is_project_member($db, $projectId, $uid)) {
+        http_response_code(403);
+        echo 'Accès refusé à ce projet.';
+        exit;
+    }
+    $project = get_project($db, $projectId);
+    if (!$project) { http_response_code(404); echo 'Projet introuvable.'; exit; }
+
+    $month = $_GET['month'] ?? date('Y-m');
+    if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = date('Y-m');
+    [$from, $to] = month_bounds($month);
+    $entries = get_project_entries_between($db, $projectId, $from, $to);
+    $members = get_project_members($db, $projectId);
+    $memberSummary = project_summary_by_member($db, $projectId, $from, $to);
+
+    // Regroupe par date : liste d'entrées (user+period) par jour
+    $entriesByDate = [];
+    foreach ($entries as $ent) {
+        $entriesByDate[$ent['date']][] = $ent;
+    }
+    // Total heures du projet sur la période
+    $projectTotalMinutes = 0;
+    foreach ($entries as $ent) {
+        $projectTotalMinutes += slot_minutes_for_code((string)$ent['period']);
+    }
+    $projectTotalHours = $projectTotalMinutes / 60.0;
+
+    $cells = build_month_cells($month);
+    [$year, $mm] = array_map('intval', explode('-', $month));
+    $monthLabel = month_name_fr($mm);
+    $prevMonth = shift_month($month, -1);
+    $nextMonth = shift_month($month, +1);
+
+    $myRole = get_project_member_role($db, $projectId, $uid);
+
+    $title = 'Équipe — ' . $project['name'];
+    $page = 'projects';
+    ob_start();
+    include BASE_DIR . '/views/team.php';
+    $content = ob_get_clean();
+    render_layout($title, $page, $content, $db ?? null);
+}
+
+/* ================================================================
+ * Users admin (app admin uniquement)
+ * ================================================================ */
+function render_users_admin(PDO $db): void {
+    require_app_admin($db);
+    $me = current_user_row($db);
+    $uid = (int)$me['id'];
+
+    $error = null;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        csrf_check_form_or_die();
+        $op = $_POST['op'] ?? '';
+        try {
+            if ($op === 'archive_toggle') {
+                $id = (int)($_POST['id'] ?? 0);
+                if ($id <= 0) throw new RuntimeException('ID invalide');
+                $target = get_user($db, $id);
+                if (!$target) throw new RuntimeException('Utilisateur introuvable');
+                $nextArchived = empty($target['archived']);
+                // Empêche de s'archiver soi-même si dernier app admin actif
+                if ($id === $uid && $nextArchived && app_admin_count($db) <= 1) {
+                    throw new RuntimeException('Impossible d\'archiver le dernier app admin actif.');
+                }
+                set_user_archived($db, $id, $nextArchived);
+            } elseif ($op === 'toggle_app_admin') {
+                $id = (int)($_POST['id'] ?? 0);
+                if ($id <= 0) throw new RuntimeException('ID invalide');
+                $target = get_user($db, $id);
+                if (!$target) throw new RuntimeException('Utilisateur introuvable');
+                $nextFlag = empty($target['is_app_admin']);
+                if (!$nextFlag && $id === $uid && app_admin_count($db) <= 1) {
+                    throw new RuntimeException('Impossible de retirer le dernier app admin.');
+                }
+                $stmt = $db->prepare('UPDATE users SET is_app_admin = ? WHERE id = ?');
+                $stmt->execute([$nextFlag ? 1 : 0, $id]);
+            }
+            header('Location: index.php?action=users');
+            exit;
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
+    }
+
+    $users = get_users($db, true);
+    $title = 'Utilisateurs — LBTimeTracker';
+    $page = 'users';
+    ob_start();
+    include BASE_DIR . '/views/users.php';
+    $content = ob_get_clean();
+    render_layout($title, $page, $content, $db ?? null);
+}
+
+/* ================================================================
+ * Profile (changement slot_mode + mot de passe)
+ * ================================================================ */
+function render_profile(PDO $db): void {
+    $me = current_user_row($db);
+    if (!$me) { header('Location: index.php?action=login'); exit; }
+    $uid = (int)$me['id'];
+
+    $error = null;
+    $notice = null;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        csrf_check_form_or_die();
+        $op = $_POST['op'] ?? '';
+        try {
+            if ($op === 'slot_mode') {
+                $mode = (string)($_POST['slot_mode'] ?? '');
+                if (!valid_slot_mode($mode)) throw new RuntimeException('Mode invalide');
+                update_user_slot_mode($db, $uid, $mode);
+                $notice = 'Granularité mise à jour.';
+            } elseif ($op === 'password') {
+                $curr = (string)($_POST['current_password'] ?? '');
+                $new = (string)($_POST['new_password'] ?? '');
+                $new2 = (string)($_POST['new_password2'] ?? '');
+                if (!password_verify($curr, (string)$me['password_hash'])) throw new RuntimeException('Mot de passe actuel invalide.');
+                if (strlen($new) < 6 || strlen($new) > 128) throw new RuntimeException('Nouveau mot de passe : 6–128 car.');
+                if ($new !== $new2) throw new RuntimeException('Confirmation différente.');
+                update_user_password($db, $uid, password_hash($new, PASSWORD_BCRYPT));
+                $notice = 'Mot de passe mis à jour.';
+            }
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
+        $me = get_user($db, $uid); // refresh after update
+    }
+
+    $title = 'Profil — LBTimeTracker';
+    $page = 'profile';
+    ob_start();
+    include BASE_DIR . '/views/profile.php';
+    $content = ob_get_clean();
+    render_layout($title, $page, $content, $db ?? null);
 }

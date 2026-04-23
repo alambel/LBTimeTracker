@@ -1,6 +1,4 @@
 <?php
-$periodCodes = period_codes();
-$fullDays = $total / 2;
 $projectsActiveWithEntries = count($rows);
 ?>
 <div class="lbtt-page-head">
@@ -24,29 +22,29 @@ $projectsActiveWithEntries = count($rows);
     </div>
     <button type="submit" class="lbtt-btn lbtt-btn-primary">Filtrer →</button>
     <div class="spacer"></div>
-    <div class="meta"><?= (int)$daysCount ?> JOURS · <?= (int)$total ?> DEMI-JOURNÉES</div>
+    <div class="meta"><?= (int)$daysCount ?> JOURS · <?= number_format($totalHours, 1, ',', ' ') ?> H</div>
 </form>
 
 <div class="lbtt-kpis">
     <div class="lbtt-kpi">
-        <div class="lbtt-label">Demi-journées</div>
-        <div class="lbtt-kpi-val"><?= (int)$total ?></div>
-        <div class="lbtt-kpi-sub">SUR <?= (int)$possibleHalfDays ?> POSSIBLES</div>
+        <div class="lbtt-label">Heures</div>
+        <div class="lbtt-kpi-val"><?= number_format($totalHours, 1, ',', ' ') ?></div>
+        <div class="lbtt-kpi-sub">MODE <?= e(strtoupper($slotMode)) ?></div>
     </div>
     <div class="lbtt-kpi">
         <div class="lbtt-label">Jours équiv.</div>
-        <div class="lbtt-kpi-val"><?= number_format($fullDays, 1, ',', ' ') ?></div>
-        <div class="lbtt-kpi-sub"><?= number_format($possibleHalfDays / 2, 0, '', ' ') ?> J. MAX</div>
+        <div class="lbtt-kpi-val"><?= number_format($totalHours / 8, 1, ',', ' ') ?></div>
+        <div class="lbtt-kpi-sub">BASE 8 H / J</div>
     </div>
     <div class="lbtt-kpi">
         <div class="lbtt-label">Projets actifs</div>
         <div class="lbtt-kpi-val"><?= (int)$projectsActiveWithEntries ?></div>
-        <div class="lbtt-kpi-sub"><?= (int)$archivedCount ?> ARCHIVÉ<?= $archivedCount > 1 ? 'S' : '' ?></div>
+        <div class="lbtt-kpi-sub">SUR LA PÉRIODE</div>
     </div>
     <div class="lbtt-kpi">
-        <div class="lbtt-label">Complétude</div>
-        <div class="lbtt-kpi-val"><?= number_format($completeness, 0) ?>%</div>
-        <div class="lbtt-kpi-sub">DEMI-J. REMPLIES</div>
+        <div class="lbtt-label">Saisies</div>
+        <div class="lbtt-kpi-val"><?= count($entries) ?></div>
+        <div class="lbtt-kpi-sub">CRÉNEAUX</div>
     </div>
 </div>
 
@@ -81,19 +79,22 @@ $projectsActiveWithEntries = count($rows);
 <div class="lbtt-table">
     <div class="lbtt-table-head">
         <div class="lbtt-label">Projet</div>
-        <div class="lbtt-label">Demi-journées</div>
-        <div class="lbtt-label">Jours éq.</div>
+        <div class="lbtt-label">Saisies</div>
+        <div class="lbtt-label">Heures</div>
         <div class="lbtt-label">%</div>
         <div class="lbtt-label col-bar">Répartition</div>
     </div>
-    <?php foreach ($rows as $r): $pct = $total ? 100 * $r['half_days'] / $total : 0; ?>
+    <?php foreach ($rows as $r):
+        $pct = $totalMinutes ? 100 * (int)$r['total_minutes'] / $totalMinutes : 0;
+        $h = (int)$r['total_minutes'] / 60;
+    ?>
         <div class="lbtt-table-row">
             <div class="lbtt-proj-cell">
                 <span class="sw" style="background: <?= e($r['color']) ?>;"></span>
                 <span class="nm"><?= e($r['name']) ?></span>
             </div>
-            <div class="lbtt-num lbtt-num-md"><?= (int)$r['half_days'] ?></div>
-            <div class="lbtt-num lbtt-num-md"><?= number_format((float)$r['full_days'], 1, ',', ' ') ?></div>
+            <div class="lbtt-num lbtt-num-md"><?= (int)$r['entry_count'] ?></div>
+            <div class="lbtt-num lbtt-num-md"><?= number_format($h, 2, ',', ' ') ?></div>
             <div class="lbtt-pct"><?= number_format($pct, 1) ?>%</div>
             <div class="col-bar">
                 <div class="lbtt-bar">

@@ -3,12 +3,19 @@ $projectsJson = json_encode(
     array_map(fn($p) => ['id' => (int)$p['id'], 'name' => $p['name'], 'color' => $p['color']], $projects),
     JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
 );
-$periodLabels = period_labels();
-$periodHours = period_hours();
-$periodCodes = period_codes();
+$periodLabels = period_labels($slotMode);
+$periodHours = period_hours($slotMode);
+$periodCodes = period_codes($slotMode);
+$slotModeJson = json_encode([
+    'mode' => $slotMode,
+    'codes' => $periodCodes,
+    'labels' => $periodLabels,
+    'hours' => $periodHours,
+], JSON_UNESCAPED_UNICODE);
 ?>
 <div class="lbtt-no-select" data-calendar
      data-projects='<?= e($projectsJson) ?>'
+     data-slot-mode='<?= e($slotModeJson) ?>'
      data-month="<?= e($month) ?>">
 
     <div class="lbtt-page-head">
@@ -19,7 +26,7 @@ $periodCodes = period_codes();
         <div class="lbtt-cal-head-right">
             <div class="lbtt-cal-head-stat">
                 <div class="lbtt-label">Saisi</div>
-                <div class="val"><?= number_format($totalHalfDays / 2, 1, ',', ' ') ?><span class="unit"> j</span></div>
+                <div class="val"><?= number_format($totalHours, 1, ',', ' ') ?><span class="unit"> h</span></div>
             </div>
             <div class="lbtt-rule-v" style="height: 40px;"></div>
             <div>
@@ -49,7 +56,7 @@ $periodCodes = period_codes();
         <div class="lbtt-cal-tip">
             <span class="lbtt-chip">Astuce</span>
             <span class="lbtt-cal-tip-text">
-                Cliquez un créneau pour l'éditer. Maintenez et glissez pour remplir plusieurs créneaux à la fois.
+                Cliquez un créneau pour l'éditer.
             </span>
         </div>
     <?php endif; ?>
@@ -133,10 +140,18 @@ $periodCodes = period_codes();
         <div class="lbtt-mcal-today">
             <div class="lbtt-mcal-today-tile"><?= $todayDay ?></div>
             <div class="lbtt-mcal-today-body">
-                <div class="lbtt-label">Aujourd'hui · <?= $todayFilled ?>/4</div>
+                <div class="lbtt-label">Aujourd'hui · <?= $todayFilled ?>/<?= count($periodCodes) ?></div>
                 <div class="lbtt-mcal-today-strips">
-                    <?php foreach ($periodCodes as $p): $e = $todayEntries[$p]; ?>
-                        <div<?= $e ? ' style="background: ' . e($e['project_color']) . ';"' : '' ?>></div>
+                    <?php foreach ($periodCodes as $p): $entry = $todayEntries[$p]; $filled = $entry !== null; ?>
+                        <button type="button"
+                                class="lbtt-mcal-today-strip<?= $filled ? ' filled' : '' ?>"
+                                data-slot data-ymd="<?= e($today) ?>" data-sk="<?= e($p) ?>"
+                                data-project-id="<?= $filled ? (int)$entry['project_id'] : '0' ?>"
+                                data-note="<?= e($filled ? (string)($entry['note'] ?? '') : '') ?>"
+                                aria-label="<?= e($periodLabels[$p]) ?>"
+                                <?= $filled ? ' style="background: ' . e($entry['project_color']) . ';"' : '' ?>>
+                            <span class="sk"><?= e($p) ?></span>
+                        </button>
                     <?php endforeach; ?>
                 </div>
             </div>

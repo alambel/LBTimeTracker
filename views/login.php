@@ -50,6 +50,9 @@
                 <input class="lbtt-input" type="password" name="password" required autocomplete="current-password">
             </label>
             <button type="submit" class="lbtt-btn lbtt-btn-primary lbtt-btn-block">SE CONNECTER →</button>
+            <div class="footnote" style="margin-top: 10px;">
+                <a href="index.php?action=signup" style="color: var(--lbtt-muted); text-decoration: underline;">Pas de compte ? Créer un compte →</a>
+            </div>
             <div class="footnote">BCRYPT · HTTPONLY · SAMESITE=LAX</div>
         </form>
     </div>

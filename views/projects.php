@@ -1,5 +1,6 @@
 <?php
 $palette = ['#c45a2e', '#2d4a3e', '#c9a24a', '#5a6f8a', '#8a6a4a', '#a14a3a', '#6a8a5a', '#a8a094'];
+$meId = current_user_id();
 ?>
 <div class="lbtt-page-head">
     <div>
@@ -36,35 +37,121 @@ $palette = ['#c45a2e', '#2d4a3e', '#c9a24a', '#5a6f8a', '#8a6a4a', '#a14a3a', '#
 <?php if (empty($projects)): ?>
     <div class="lbtt-cal-tip">
         <span class="lbtt-chip">Vide</span>
-        <span class="lbtt-cal-tip-text">Aucun projet pour l'instant.</span>
+        <span class="lbtt-cal-tip-text">Aucun projet pour l'instant. Crée-en un ou demande à un admin de t'ajouter.</span>
     </div>
 <?php else: ?>
-<div class="lbtt-proj-table">
+<div class="lbtt-proj-list">
     <?php foreach ($projects as $p):
-        $count = $entryCounts[(int)$p['id']] ?? 0;
-        $rowCls = 'lbtt-proj-row' . (!empty($p['archived']) ? ' archived' : '');
+        $pid = (int)$p['id'];
+        $count = $entryCounts[$pid] ?? 0;
+        $members = $membersByProject[$pid] ?? [];
+        $myRole = $p['my_role'] ?? 'member';
+        $isAdmin = ($myRole === 'admin');
+        $rowCls = 'lbtt-proj-card' . (!empty($p['archived']) ? ' archived' : '');
     ?>
-        <form method="post" class="<?= $rowCls ?>">
-            <?= csrf_field() ?>
-            <input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
-            <input type="hidden" name="name" value="<?= e($p['name']) ?>">
-            <input type="hidden" name="color" value="<?= e($p['color']) ?>">
-            <div class="lbtt-proj-swatch" style="color: <?= e($p['color']) ?>;"></div>
-            <input class="lbtt-proj-edit" type="text" value="<?= e($p['name']) ?>"
-                   data-proj-name data-initial="<?= e($p['name']) ?>">
-            <div class="lbtt-proj-hex col-hide-mobile"><?= e(strtoupper($p['color'])) ?></div>
-            <div class="lbtt-proj-count col-hide-mobile"><?= (int)$count ?> saisie<?= $count > 1 ? 's' : '' ?></div>
-            <button type="submit" name="op" value="archive_toggle" class="lbtt-btn lbtt-btn-ghost" style="font-size: 9.5px;">
-                <?= !empty($p['archived']) ? '↑ Restaurer' : '▢ Archiver' ?>
-            </button>
-            <button type="submit" name="op" value="delete" class="lbtt-btn lbtt-btn-ghost lbtt-btn-danger col-hide-mobile" style="font-size: 9.5px;"
-                    onclick="return confirm('Supprimer « <?= e(addslashes($p['name'])) ?> » et ses <?= (int)$count ?> saisie(s) ?');">
-                Supprimer
-            </button>
-        </form>
+        <div class="<?= $rowCls ?>" data-project-card>
+            <div class="lbtt-proj-card-head">
+                <div class="lbtt-proj-swatch" style="color: <?= e($p['color']) ?>;"></div>
+                <div class="lbtt-proj-card-name">
+                    <span class="lbtt-proj-title"><?= e($p['name']) ?></span>
+                    <span class="lbtt-proj-sub">
+                        <?= (int)$count ?> saisie<?= $count > 1 ? 's' : '' ?> · <?= count($members) ?> membre<?= count($members) > 1 ? 's' : '' ?>
+                        <?php if (!empty($p['archived'])): ?> · <span class="lbtt-chip">Archivé</span><?php endif; ?>
+                    </span>
+                </div>
+                <div class="lbtt-proj-card-actions">
+                    <a href="index.php?action=team&id=<?= $pid ?>" class="lbtt-btn lbtt-btn-ghost" style="font-size: 10px;">Équipe →</a>
+                    <?php if ($isAdmin): ?>
+                        <button type="button" class="lbtt-btn lbtt-btn-ghost" style="font-size: 10px;" data-toggle-project-manage>Gérer ▾</button>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="lbtt-proj-members">
+                <?php foreach ($members as $m):
+                    $isMe = ((int)$m['id'] === (int)$meId);
+                    $mCls = 'lbtt-tag' . ($m['role'] === 'admin' ? ' is-admin' : '');
+                ?>
+                    <span class="<?= $mCls ?>" title="<?= e($m['username']) ?> — <?= e($m['role']) ?>">
+                        <span class="lbtt-tag-dot" style="background: <?= e($p['color']) ?>;"></span>
+                        <?= e($m['username']) ?>
+                        <span class="lbtt-role-badge lbtt-role-<?= e($m['role']) ?>"><?= $m['role'] === 'admin' ? 'admin' : 'member' ?></span>
+                        <?php if (!empty($m['archived'])): ?><span class="lbtt-chip" style="margin-left: 4px;">archivé</span><?php endif; ?>
+                        <?php if ($isMe): ?><span style="color: var(--lbtt-muted);">(moi)</span><?php endif; ?>
+                    </span>
+                <?php endforeach; ?>
+            </div>
+
+            <?php if ($isAdmin): ?>
+            <div class="lbtt-proj-manage" hidden data-project-manage>
+                <!-- renommer / couleur / archiver -->
+                <form method="post" class="lbtt-proj-manage-row">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="id" value="<?= $pid ?>">
+                    <input type="hidden" name="archived" value="<?= !empty($p['archived']) ? 1 : 0 ?>">
+                    <div class="lbtt-proj-manage-inputs">
+                        <label class="lbtt-label">Nom
+                            <input class="lbtt-input" type="text" name="name" value="<?= e($p['name']) ?>" maxlength="100" required>
+                        </label>
+                        <label class="lbtt-label">Couleur
+                            <input class="lbtt-input" type="text" name="color" value="<?= e($p['color']) ?>" pattern="#[0-9a-fA-F]{6}" required>
+                        </label>
+                    </div>
+                    <div class="lbtt-proj-manage-btns">
+                        <button type="submit" name="op" value="update" class="lbtt-btn lbtt-btn-primary" style="font-size: 11px;">Enregistrer</button>
+                        <button type="submit" name="op" value="archive_toggle" class="lbtt-btn lbtt-btn-ghost" style="font-size: 11px;"
+                                onclick="return confirm('<?= !empty($p['archived']) ? 'Restaurer' : 'Archiver' ?> ce projet ?');">
+                            <?= !empty($p['archived']) ? '↑ Restaurer' : '▢ Archiver' ?>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- gestion des membres -->
+                <div class="lbtt-proj-members-mgmt">
+                    <div class="lbtt-label">Membres</div>
+                    <?php foreach ($members as $m):
+                        $targetId = (int)$m['id'];
+                        $isMe = $targetId === (int)$meId;
+                    ?>
+                        <form method="post" class="lbtt-proj-member-row">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="id" value="<?= $pid ?>">
+                            <input type="hidden" name="user_id" value="<?= $targetId ?>">
+                            <span class="lbtt-proj-member-name"><?= e($m['username']) ?><?php if ($isMe): ?> <span style="color: var(--lbtt-muted);">(moi)</span><?php endif; ?></span>
+                            <select name="role" class="lbtt-select" style="font-size: 11px; padding: 4px 6px;">
+                                <option value="admin" <?= $m['role'] === 'admin' ? 'selected' : '' ?>>admin</option>
+                                <option value="member" <?= $m['role'] === 'member' ? 'selected' : '' ?>>member</option>
+                            </select>
+                            <button type="submit" name="op" value="set_member_role" class="lbtt-btn lbtt-btn-ghost" style="font-size: 10px;">Rôle</button>
+                            <button type="submit" name="op" value="remove_member" class="lbtt-btn lbtt-btn-ghost lbtt-btn-danger" style="font-size: 10px;"
+                                    onclick="return confirm('Retirer <?= e(addslashes($m['username'])) ?> du projet ?');">Retirer</button>
+                        </form>
+                    <?php endforeach; ?>
+
+                    <form method="post" class="lbtt-proj-add-member">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="op" value="add_member">
+                        <input type="hidden" name="id" value="<?= $pid ?>">
+                        <input class="lbtt-input" type="text" name="member_username" required placeholder="Nom d'utilisateur à inviter" maxlength="64">
+                        <select name="member_role" class="lbtt-select" style="font-size: 11px;">
+                            <option value="member">member</option>
+                            <option value="admin">admin</option>
+                        </select>
+                        <button type="submit" class="lbtt-btn lbtt-btn-primary" style="font-size: 11px;">+ Ajouter</button>
+                    </form>
+                </div>
+            </div>
+            <?php else: ?>
+                <form method="post" style="margin-top: 6px;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="op" value="remove_member">
+                    <input type="hidden" name="id" value="<?= $pid ?>">
+                    <input type="hidden" name="user_id" value="<?= (int)$meId ?>">
+                    <button type="submit" class="lbtt-btn lbtt-btn-ghost lbtt-btn-danger" style="font-size: 10px;"
+                            onclick="return confirm('Quitter ce projet ?');">Quitter le projet</button>
+                </form>
+            <?php endif; ?>
+        </div>
     <?php endforeach; ?>
-</div>
-<div class="lbtt-proj-cascade-warn">
-    ⚠ Supprimer un projet efface aussi toutes ses saisies (CASCADE).
 </div>
 <?php endif; ?>

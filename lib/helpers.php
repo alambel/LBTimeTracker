@@ -33,30 +33,89 @@ function valid_date(string $s): bool {
     return $t !== false;
 }
 
-function period_codes(): array {
-    return ['AM', 'PM', 'EV', 'NT'];
-}
-
-function period_labels(): array {
+/**
+ * Slot modes — each user picks one.
+ *  hd2  : 2 tranches × 4h (matin / aprem)
+ *  hd4  : 4 tranches × 4h (AM/PM/EV/NT — historique)
+ *  hr10 : 10 tranches × 1h
+ *
+ * Codes uniques entre modes → la durée s'infère du code seul.
+ */
+function slot_modes(): array {
     return [
-        'AM' => 'Matin',
-        'PM' => 'Après-midi',
-        'EV' => 'Soir',
-        'NT' => 'Nuit',
+        'hd2' => [
+            'label'   => 'Demi-journées (2 × 4 h)',
+            'codes'   => ['D1', 'D2'],
+            'names'   => ['D1' => 'Matin', 'D2' => 'Après-midi'],
+            'hours'   => ['D1' => '08–12', 'D2' => '13–17'],
+            'minutes' => 240,
+        ],
+        'hd4' => [
+            'label'   => 'Quarts de journée (4 × 4 h)',
+            'codes'   => ['AM', 'PM', 'EV', 'NT'],
+            'names'   => ['AM' => 'Matin', 'PM' => 'Après-midi', 'EV' => 'Soir', 'NT' => 'Nuit'],
+            'hours'   => ['AM' => '08–12', 'PM' => '13–17', 'EV' => '17–21', 'NT' => '22–02'],
+            'minutes' => 240,
+        ],
+        'hr10' => [
+            'label'   => 'Heures (10 × 1 h)',
+            'codes'   => ['H01','H02','H03','H04','H05','H06','H07','H08','H09','H10'],
+            'names'   => [
+                'H01' => '08 h', 'H02' => '09 h', 'H03' => '10 h', 'H04' => '11 h', 'H05' => '12 h',
+                'H06' => '13 h', 'H07' => '14 h', 'H08' => '15 h', 'H09' => '16 h', 'H10' => '17 h',
+            ],
+            'hours'   => [
+                'H01' => '08–09', 'H02' => '09–10', 'H03' => '10–11', 'H04' => '11–12', 'H05' => '12–13',
+                'H06' => '13–14', 'H07' => '14–15', 'H08' => '15–16', 'H09' => '16–17', 'H10' => '17–18',
+            ],
+            'minutes' => 60,
+        ],
     ];
 }
 
-function valid_period(string $p): bool {
-    return in_array($p, period_codes(), true);
+function valid_slot_mode(string $m): bool {
+    return array_key_exists($m, slot_modes());
 }
 
-function period_hours(): array {
-    return [
-        'AM' => '08–12',
-        'PM' => '13–17',
-        'EV' => '17–21',
-        'NT' => '22–02',
-    ];
+function slot_mode_config(string $mode): array {
+    $modes = slot_modes();
+    return $modes[$mode] ?? $modes['hd4'];
+}
+
+/** Codes de créneau pour un mode donné (ex. ['AM','PM','EV','NT']). */
+function period_codes(string $mode = 'hd4'): array {
+    return slot_mode_config($mode)['codes'];
+}
+
+/** Labels humains pour un mode donné. */
+function period_labels(string $mode = 'hd4'): array {
+    return slot_mode_config($mode)['names'];
+}
+
+/** Plages horaires indicatives pour un mode donné. */
+function period_hours(string $mode = 'hd4'): array {
+    return slot_mode_config($mode)['hours'];
+}
+
+/** Valide un code dans un mode donné (strict). */
+function valid_period(string $p, string $mode = 'hd4'): bool {
+    return in_array($p, period_codes($mode), true);
+}
+
+/** Valide un code dans *n'importe quel* mode connu (utile pour agrégats multi-users). */
+function valid_period_any(string $p): bool {
+    foreach (slot_modes() as $cfg) {
+        if (in_array($p, $cfg['codes'], true)) return true;
+    }
+    return false;
+}
+
+/** Minutes associées à un code (dérivé de sa famille). */
+function slot_minutes_for_code(string $code): int {
+    foreach (slot_modes() as $cfg) {
+        if (in_array($code, $cfg['codes'], true)) return (int)$cfg['minutes'];
+    }
+    return 0;
 }
 
 function month_name_fr(int $m): string {

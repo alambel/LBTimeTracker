@@ -12,6 +12,15 @@
         return { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN };
     }
 
+    // ===== Logout confirmation =====
+    document.querySelectorAll('form[data-confirm-logout]').forEach((form) => {
+        form.addEventListener('submit', (e) => {
+            if (!window.confirm('Se déconnecter maintenant ?')) {
+                e.preventDefault();
+            }
+        });
+    });
+
     // ===== Setup wizard =====
     (function initSetup() {
         const form = document.querySelector('[data-setup-wizard]');
@@ -108,6 +117,14 @@
         let projects = [];
         try { projects = JSON.parse(root.dataset.projects || '[]'); } catch (e) {}
 
+        let slotMode = { mode: 'hd4', codes: ['AM','PM','EV','NT'], labels: {}, hours: {} };
+        try {
+            const sm = JSON.parse(root.dataset.slotMode || 'null');
+            if (sm && sm.codes) slotMode = sm;
+        } catch (e) {}
+        const PERIOD_LABELS = slotMode.labels || {};
+        const PERIOD_HOURS = slotMode.hours || {};
+
         const overlay = document.getElementById('lbtt-sheet-overlay');
         if (!overlay) return;
 
@@ -119,32 +136,24 @@
         const closeBtn = document.getElementById('lbtt-sheet-close');
 
         const MONTHS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-        const PERIOD_LABELS = { AM: 'Matin', PM: 'Après-midi', EV: 'Soir', NT: 'Nuit' };
-        const PERIOD_HOURS = { AM: '08–12', PM: '13–17', EV: '17–21', NT: '22–02' };
 
-        let current = null; // { targets: [{ymd, slot}], single: bool }
+        let current = null; // { ymd, slot }
 
         function fmtDate(ymd) {
             const [y, m, d] = ymd.split('-').map(Number);
             return `${d} ${MONTHS[m - 1]} ${y}`;
         }
 
-        function renderSheet(state) {
-            current = state;
-            const first = state.targets[0];
-            if (state.single) {
-                eyebrow.textContent = `${PERIOD_LABELS[first.slot]} · ${PERIOD_HOURS[first.slot]}`;
-                title.textContent = fmtDate(first.ymd);
-                noteWrap.hidden = false;
-                // Read existing note from the DOM element
-                const slotEl = document.querySelector(`[data-slot][data-ymd="${first.ymd}"][data-sk="${first.slot}"]`);
-                noteInput.value = slotEl ? (slotEl.dataset.note || '') : '';
-            } else {
-                eyebrow.textContent = 'Remplissage groupé';
-                title.textContent = `${state.targets.length} créneaux`;
-                noteWrap.hidden = true;
-                noteInput.value = '';
-            }
+        function renderSheet(target) {
+            current = target;
+            const label = PERIOD_LABELS[target.slot] || target.slot;
+            const hours = PERIOD_HOURS[target.slot] || '';
+            eyebrow.textContent = hours ? `${label} · ${hours}` : label;
+            title.textContent = fmtDate(target.ymd);
+            noteWrap.hidden = false;
+            const slotEl = document.querySelector(`[data-slot][data-ymd="${target.ymd}"][data-sk="${target.slot}"]`);
+            noteInput.value = slotEl ? (slotEl.dataset.note || '') : '';
+            const currentProjectId = slotEl ? (slotEl.dataset.projectId || '0') : '0';
             // Build project grid
             grid.innerHTML = '';
             projects.forEach((p) => {
@@ -152,6 +161,7 @@
                 btn.type = 'button';
                 btn.className = 'lbtt-sheet-project-btn';
                 btn.dataset.id = String(p.id);
+                if (String(p.id) === currentProjectId) btn.classList.add('active');
                 btn.innerHTML = '<span class="sw"></span><span class="nm"></span>';
                 btn.querySelector('.sw').style.background = p.color;
                 btn.querySelector('.nm').textContent = p.name;
@@ -161,7 +171,7 @@
             const clearBtn = document.createElement('button');
             clearBtn.type = 'button';
             clearBtn.className = 'lbtt-sheet-clear';
-            clearBtn.textContent = state.single ? '× Effacer' : `× Effacer les ${state.targets.length} créneaux`;
+            clearBtn.textContent = '× Effacer';
             clearBtn.addEventListener('click', () => pick(null));
             grid.appendChild(clearBtn);
 
@@ -178,37 +188,24 @@
 
         async function pick(projectId) {
             if (!current) return;
-            const targets = current.targets.map((t) => ({ date: t.ymd, period: t.slot }));
-            const note = (current.single && noteInput.value.trim()) ? noteInput.value.trim() : null;
+            const { ymd, slot } = current;
+            const note = noteInput.value.trim() ? noteInput.value.trim() : null;
             try {
-                let r, data;
-                if (targets.length === 1) {
-                    r = await fetch('index.php?action=api_save_entry', {
-                        method: 'POST',
-                        headers: authHeaders(),
-                        credentials: 'same-origin',
-                        body: JSON.stringify({
-                            date: targets[0].date,
-                            period: targets[0].period,
-                            project_id: projectId,
-                            note: note,
-                        }),
-                    });
-                } else {
-                    r = await fetch('index.php?action=api_batch_save', {
-                        method: 'POST',
-                        headers: authHeaders(),
-                        credentials: 'same-origin',
-                        body: JSON.stringify({ targets: targets, project_id: projectId }),
-                    });
-                }
-                data = await r.json().catch(() => ({}));
-                if (!r.ok) throw new Error(data.error || ('Erreur HTTP ' + r.status));
-                // Apply to UI
-                const p = projectId !== null ? projects.find((pp) => pp.id === projectId) : null;
-                current.targets.forEach(({ ymd, slot }) => {
-                    document.querySelectorAll(`[data-slot][data-ymd="${ymd}"][data-sk="${slot}"]`).forEach((el) => applyEntry(el, p, current.single ? note : (el.dataset.note || null)));
+                const r = await fetch('index.php?action=api_save_entry', {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        date: ymd,
+                        period: slot,
+                        project_id: projectId,
+                        note: note,
+                    }),
                 });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(data.error || ('Erreur HTTP ' + r.status));
+                const p = projectId !== null ? projects.find((pp) => pp.id === projectId) : null;
+                document.querySelectorAll(`[data-slot][data-ymd="${ymd}"][data-sk="${slot}"]`).forEach((el) => applyEntry(el, p, note));
                 closeSheet();
             } catch (err) {
                 alert('Erreur : ' + err.message);
@@ -236,66 +233,24 @@
             slotEl.setAttribute('title', project.name + (note ? ' — ' + note : ''));
         }
 
-        // Drag-to-fill pointer handling
-        let drag = null;
-
-        function findSlotAt(x, y) {
-            const el = document.elementFromPoint(x, y);
-            return el && el.closest ? el.closest('[data-slot]') : null;
-        }
-
-        function addToPath(ymd, slot) {
-            if (!drag) return;
-            const last = drag.path[drag.path.length - 1];
-            if (last && last.ymd === ymd && last.slot === slot) return;
-            drag.path.push({ ymd, slot });
-            const el = document.querySelector(`[data-slot][data-ymd="${ymd}"][data-sk="${slot}"]`);
-            if (el) el.classList.add('dragging');
-        }
-
-        function clearDragHighlight() {
-            document.querySelectorAll('[data-slot].dragging').forEach((el) => el.classList.remove('dragging'));
-        }
-
-        root.addEventListener('pointerdown', (e) => {
+        root.addEventListener('click', (e) => {
             const slotEl = e.target.closest('[data-slot]');
             if (!slotEl) return;
             e.preventDefault();
-            drag = { path: [], startTime: Date.now() };
-            addToPath(slotEl.dataset.ymd, slotEl.dataset.sk);
-            document.body.classList.add('lbtt-no-select');
-        });
-
-        window.addEventListener('pointermove', (e) => {
-            if (!drag) return;
-            const s = findSlotAt(e.clientX, e.clientY);
-            if (!s) return;
-            addToPath(s.dataset.ymd, s.dataset.sk);
-        });
-
-        window.addEventListener('pointerup', () => {
-            if (!drag) return;
-            const seen = new Set();
-            const uniq = drag.path.filter((p) => {
-                const k = p.ymd + '_' + p.slot;
-                if (seen.has(k)) return false;
-                seen.add(k);
-                return true;
-            });
-            clearDragHighlight();
-            document.body.classList.remove('lbtt-no-select');
-            if (uniq.length > 0) {
-                renderSheet({ targets: uniq, single: uniq.length === 1 });
-            }
-            drag = null;
-        });
-
-        window.addEventListener('pointercancel', () => {
-            if (drag) {
-                clearDragHighlight();
-                document.body.classList.remove('lbtt-no-select');
-                drag = null;
-            }
+            renderSheet({ ymd: slotEl.dataset.ymd, slot: slotEl.dataset.sk });
         });
     })();
+
+    // ===== Projects — toggle "Gérer" panel per card =====
+    document.querySelectorAll('[data-toggle-project-manage]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const card = btn.closest('[data-project-card]');
+            if (!card) return;
+            const panel = card.querySelector('[data-project-manage]');
+            if (!panel) return;
+            const isOpen = !panel.hasAttribute('hidden');
+            if (isOpen) panel.setAttribute('hidden', '');
+            else panel.removeAttribute('hidden');
+        });
+    });
 })();

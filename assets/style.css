@@ -385,7 +385,6 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 .lbtt-cal-slot.filled { border: none; color: #fff; }
 .lbtt-cal-slot.filled:hover { filter: brightness(1.06); }
-.lbtt-cal-slot.dragging { outline: 2px solid var(--lbtt-ink); outline-offset: -1px; }
 .lbtt-cal-slot .sk {
     font-family: var(--mono); font-size: 7.5px; letter-spacing: 0.1em; opacity: 0.85;
     text-transform: uppercase; flex-shrink: 0;
@@ -420,9 +419,19 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 .lbtt-mcal-today-body { flex: 1; min-width: 0; }
 .lbtt-mcal-today-strips {
-    display: flex; gap: 2px; margin-top: 4px;
+    display: flex; gap: 4px; margin-top: 6px;
 }
-.lbtt-mcal-today-strips > div { flex: 1; height: 5px; background: var(--lbtt-paper-3); }
+.lbtt-mcal-today-strip {
+    flex: 1; min-height: 28px;
+    display: grid; place-items: center;
+    background: var(--lbtt-paper-3);
+    border: 1px solid var(--lbtt-rule);
+    color: var(--lbtt-muted);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    padding: 0; cursor: pointer;
+}
+.lbtt-mcal-today-strip.filled { color: #fff; border-color: transparent; }
+.lbtt-mcal-today-strip .sk { pointer-events: none; }
 .lbtt-mcal-weekdays {
     display: grid; grid-template-columns: repeat(7, 1fr); padding: 8px 0 2px;
 }
@@ -458,9 +467,7 @@ input, select, textarea { font-family: inherit; color: inherit; }
     flex: 1; min-height: 9px;
     background: var(--lbtt-paper-3);
     border: none; padding: 0; cursor: pointer;
-    touch-action: none;
 }
-.lbtt-mcal-strips > button.dragging { outline: 1.5px solid var(--lbtt-ink); outline-offset: -1px; }
 
 /* ========== Edit sheet / modal ========== */
 .lbtt-sheet-overlay {
@@ -843,4 +850,114 @@ body > .lbtt-footer .lbtt-footer-subject,
 
 @media (min-width: 901px) {
     .lbtt-mcal-wrap { display: none !important; }
+}
+
+/* ========== Multi-user additions ========== */
+
+/* Role badges */
+.lbtt-role-badge {
+    display: inline-block;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em;
+    padding: 1px 5px; margin-left: 6px;
+    border: 1px solid var(--lbtt-rule);
+    background: var(--lbtt-paper);
+    color: var(--lbtt-muted);
+    text-transform: uppercase;
+}
+.lbtt-role-admin {
+    border-color: var(--lbtt-accent);
+    color: var(--lbtt-accent-ink);
+    background: var(--lbtt-paper);
+}
+
+/* Project cards (remplace table inline) */
+.lbtt-proj-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.lbtt-proj-card {
+    background: var(--lbtt-paper-2);
+    border: 1px solid var(--lbtt-rule);
+    padding: 12px 14px;
+}
+.lbtt-proj-card.archived { opacity: 0.65; }
+.lbtt-proj-card-head { display: flex; align-items: center; gap: 10px; }
+.lbtt-proj-card-name { flex: 1; min-width: 0; }
+.lbtt-proj-title { font-family: var(--serif); font-size: 18px; color: var(--lbtt-ink); display: block; }
+.lbtt-proj-sub { font-size: 11px; color: var(--lbtt-muted); display: block; margin-top: 2px; }
+.lbtt-proj-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.lbtt-proj-members { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.lbtt-proj-members .lbtt-tag { font-size: 11px; }
+.lbtt-proj-members .lbtt-tag.is-admin { border-color: var(--lbtt-accent); }
+.lbtt-proj-manage {
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px dashed var(--lbtt-rule);
+}
+.lbtt-proj-manage-row { display: flex; flex-direction: column; gap: 8px; }
+.lbtt-proj-manage-inputs {
+    display: grid; grid-template-columns: 2fr 1fr; gap: 8px;
+}
+.lbtt-proj-manage-btns { display: flex; gap: 6px; }
+.lbtt-proj-members-mgmt { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.lbtt-proj-member-row {
+    display: grid; grid-template-columns: 1fr auto auto auto;
+    gap: 6px; align-items: center; padding: 4px 0;
+    border-bottom: 1px solid var(--lbtt-rule);
+}
+.lbtt-proj-member-name { font-size: 12px; color: var(--lbtt-ink); }
+.lbtt-proj-add-member {
+    display: grid; grid-template-columns: 1fr auto auto;
+    gap: 6px; align-items: center; margin-top: 8px;
+}
+@media (max-width: 640px) {
+    .lbtt-proj-manage-inputs { grid-template-columns: 1fr; }
+    .lbtt-proj-member-row { grid-template-columns: 1fr auto; grid-auto-flow: row; }
+    .lbtt-proj-add-member { grid-template-columns: 1fr; }
+}
+
+/* Team avatars */
+.lbtt-team-avatar {
+    display: inline-grid; place-items: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    color: #fff;
+    font-family: var(--mono); font-size: 9px; font-weight: 600;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+}
+
+/* Team grid (vue équipe par jour) */
+.lbtt-team-grid { margin-top: 14px; }
+.lbtt-team-cells {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+    background: var(--lbtt-rule);
+    border: 1px solid var(--lbtt-rule);
+}
+.lbtt-team-cell {
+    background: var(--lbtt-paper);
+    min-height: 80px;
+    padding: 6px 8px;
+    display: flex; flex-direction: column; gap: 6px;
+}
+.lbtt-team-cell.empty { background: var(--lbtt-paper-3); min-height: 40px; }
+.lbtt-team-cell.weekend { background: var(--lbtt-paper-2); }
+.lbtt-team-cell.today { outline: 2px solid var(--lbtt-accent); outline-offset: -2px; }
+.lbtt-team-cell-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+}
+.lbtt-team-cell-head .n {
+    font-family: var(--mono); font-size: 12px; color: var(--lbtt-ink);
+}
+.lbtt-team-cell-head .h {
+    font-family: var(--mono); font-size: 10px; color: var(--lbtt-accent-ink);
+}
+.lbtt-team-cell-users { display: flex; flex-wrap: wrap; gap: 3px; }
+.lbtt-section-title {
+    margin-top: 24px; margin-bottom: 8px;
+    font-family: var(--serif); font-size: 22px; font-weight: 400;
+    color: var(--lbtt-ink);
+    text-transform: lowercase;
+}
+
+@media (max-width: 640px) {
+    .lbtt-team-cell { min-height: 54px; padding: 4px 5px; }
+    .lbtt-team-cell-head .h { display: none; }
+    .lbtt-team-avatar { width: 16px; height: 16px; font-size: 8px; }
 }

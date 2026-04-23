@@ -2,5 +2,7 @@ config.php
 version.txt
 .version_cache.json
 data/
+backups/
 .DS_Store
 .idea/
+.claude/

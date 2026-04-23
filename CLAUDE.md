@@ -1,6 +1,8 @@
 # LB Time Tracker — notes Claude
 
-Petit outil perso de suivi du temps par créneau (4 par jour). PHP + MariaDB, zéro dépendance Composer.
+Outil multi-user de suivi du temps par créneau. PHP + MariaDB, zéro dépendance Composer.
+
+Signup public ouvert. Chaque user choisit sa granularité (`hd2`=2×4h, `hd4`=4×4h, `hr10`=10×1h). Projets partageables avec rôles `admin`/`member`. Pas de suppression : users et projets s'archivent uniquement.
 
 ## Stack
 - PHP 8+ (utilise `str_starts_with`, nullsafe, union types)
@@ -18,12 +20,15 @@ php -S localhost:8000
 Tout passe par `index.php?action=X` — pas de rewrite rule nécessaire.
 
 Actions :
-- `calendar` (défaut) — vue mensuelle, saisie AM/PM
-- `summary` — agrégats par projet, filtre période, export CSV (`&format=csv`)
-- `projects` — CRUD (POST `op=create|update|delete`)
-- `login` / `logout`
-- `api_entries` (GET) — JSON des entries d'une plage
-- `api_save_entry` (POST JSON) — upsert/suppression d'une demi-journée
+- `calendar` (défaut) — grille mensuelle perso, grille = slot_mode de l'user (hd2/hd4/hr10)
+- `summary` — agrégats par projet (en heures), filtre période, export CSV
+- `projects` — liste des projets dont je suis membre, partage/rôles (POST `op=create|update|archive_toggle|add_member|set_member_role|remove_member`)
+- `team&id=N` — vue équipe d'un projet : calendrier avec initiales des membres + résumé par membre
+- `profile` — changer slot_mode ou mot de passe
+- `users` — app admin uniquement : archive/promouvoir app admin
+- `login` / `signup` / `logout`
+- `api_entries` (GET) — JSON des entries d'une plage (scopé user courant)
+- `api_save_entry` (POST JSON) — upsert/suppression d'un créneau
 
 Actions préfixées `api_*` → JSON + `require_auth()` renvoie 401 JSON au lieu d'un redirect.
 
@@ -42,39 +47,59 @@ Actions préfixées `api_*` → JSON + `require_auth()` renvoie 401 JSON au lieu
 
 ## Schéma MariaDB
 ```sql
-projects(
-    id INT UNSIGNED AUTO_INCREMENT PK,
-    name VARCHAR(100) UNIQUE,
-    color VARCHAR(7) DEFAULT '#4a90e2',
+users(
+    id, username UNIQUE, password_hash,
+    is_app_admin TINYINT(1),
+    slot_mode VARCHAR(8) DEFAULT 'hd4',   -- 'hd2' | 'hd4' | 'hr10'
     archived TINYINT(1) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB utf8mb4_unicode_ci
+    created_at
+)
+
+projects(
+    id, name UNIQUE, color, archived, created_by → users(id) NULL,
+    created_at
+)
+
+project_members(
+    project_id FK → projects(id) CASCADE,
+    user_id    FK → users(id)    CASCADE,
+    role ENUM('admin','member'),
+    PK (project_id, user_id)
+)
 
 entries(
-    id INT UNSIGNED AUTO_INCREMENT PK,
-    date DATE,
-    period ENUM('AM','PM','EV','NT'),
-    project_id INT UNSIGNED FK → projects(id) ON DELETE CASCADE,
-    note VARCHAR(255) NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY (date, period)
-) ENGINE=InnoDB utf8mb4_unicode_ci
+    id, user_id FK → users(id) CASCADE,
+    date DATE, period VARCHAR(4),          -- 'D1/D2' | 'AM/PM/EV/NT' | 'H01..H10'
+    project_id FK → projects(id) CASCADE,
+    note, updated_at,
+    UNIQUE (user_id, date, period)
+)
 ```
-- **4 créneaux par jour** : `AM` (Matin), `PM` (Après-midi), `EV` (Soir), `NT` (Nuit). Codes et labels centralisés dans `helpers.php` (`period_codes()`, `period_labels()`, `valid_period()`).
-- `period` est un `ENUM` (plus propre qu'un CHECK, validation côté DB). Ajouter un nouveau créneau = `ALTER TABLE entries MODIFY COLUMN period ENUM(...)` + update `period_codes()`/`period_labels()`.
-- `set_entry(..., projectId=null)` supprime l'entrée (la "case vide").
-- `set_entry()` utilise **DELETE + INSERT dans une transaction** pour rester portable (pas de dépendance à `ON DUPLICATE KEY UPDATE` MySQL-only).
-- `ON DELETE CASCADE` sur la FK → supprimer un projet efface ses saisies.
-- `db_migrate()` se contente de `CREATE TABLE IF NOT EXISTS`. L'user DB doit avoir `CREATE, ALTER, INDEX, REFERENCES` en plus de `SELECT/INSERT/UPDATE/DELETE`.
+
+- **Slot modes** (granularité par *user*, pas par projet) — centralisés dans `helpers.php#slot_modes()` :
+  - `hd2` : `D1`, `D2` (240 min chacun)
+  - `hd4` : `AM`, `PM`, `EV`, `NT` (240 min chacun — legacy)
+  - `hr10` : `H01`..`H10` (60 min chacun)
+- Les **codes sont uniques entre modes**, donc la durée d'une entrée s'infère du code (`slot_minutes_for_code()`). Les agrégations multi-users totalisent en **heures** (pas en jours), ce qui gère l'hétérogénéité des modes.
+- `set_entry($userId, ..., $projectId=null)` supprime l'entrée si `projectId` null. Toujours scopé au user courant.
+- `db_migrate()` idempotent via `information_schema` (has_column/has_index/has_fk). Migre automatiquement le schéma legacy mono-user (entries.period ENUM → VARCHAR, ajout user_id, backfill depuis `config.php` username+password_hash).
+- L'user DB doit avoir `SELECT/INSERT/UPDATE/DELETE/CREATE/ALTER/INDEX/REFERENCES`.
+
+## Rôles et visibilité
+- **App admin** (flag `users.is_app_admin`) : le 1er user créé au setup l'est. Accès à `/users` pour archiver/promouvoir. Toujours ≥ 1 actif.
+- **Project admin** (`project_members.role = 'admin'`) : renomme/archive le projet, ajoute/retire des membres, change les rôles. Créateur = admin auto. Toujours ≥ 1 par projet.
+- **Member** : saisit ses propres entrées sur les projets dont il est membre. Voit la vue équipe (lecture seule).
+- **Archivage** : `users.archived = 1` → login refusé, session tuée côté lecture. Entrées conservées, visibles en vue équipe avec badge *archivé*. Pareil côté projet.
 
 ## Sécurité
-- `config.php` en mode 0600, contient `password_hash` (bcrypt) ET les credentials MariaDB
-- Session : `httponly=true`, `samesite=Lax`, nom `lbtt`
-- Login : `hash_equals` sur username + `password_verify` sur mot de passe
-- `session_regenerate_id(true)` après login OK
-- Tout l'affichage user-provided passe par `e()` (htmlspecialchars)
-- Requêtes SQL : 100% prepared statements (PDO avec `ATTR_EMULATE_PREPARES = false`)
-- Ignoré par git : `config.php`, `.idea/`
+- `config.php` en mode 0600, contient uniquement les credentials MariaDB + `timezone` + `session_name`. Plus de hash user (migré en DB).
+- Session : `httponly=true`, `samesite=Lax`, nom `lbtt`. `$_SESSION['uid']` + `$_SESSION['user']`.
+- Login : lookup `users` par username, `password_verify` bcrypt. `session_regenerate_id(true)` après login.
+- Signup : rate-limit partagé avec login. Username regex `[A-Za-z0-9._-]{2,64}`. Password 6–128.
+- Toute action projet vérifie `user_is_project_member` / `user_is_project_admin`.
+- API sauvegarde entrée : vérifie que le user est membre du projet cible.
+- Affichage user-provided → `e()` (htmlspecialchars). SQL → 100% prepared statements.
+- Ignoré par git : `config.php`, `backups/`, `data/`, `.idea/`
 
 ## Pièges connus
 - **Formulaires projets** : une `<form>` par ligne (pas de forms imbriquées dans `<table>`). 2 boutons `name="op"` avec `value=update|delete` partagent le même form.
@@ -84,7 +109,8 @@ entries(
 - **Timezone** : lue depuis `config.timezone` (défaut `Europe/Zurich`), appliquée avant `session_start`.
 - **GROUP BY strict** : MySQL en mode `ONLY_FULL_GROUP_BY` (défaut 5.7+) exige que toute colonne sélectionnée soit dans le GROUP BY ou agrégée. La query `summary_between()` inclut `p.name, p.color` dans le GROUP BY pour cette raison.
 - **DB credentials perdus** : supprimer `config.php` → setup se relance. Les données MariaDB sont préservées (tables intactes).
-- **Ajouter un créneau** : `ALTER TABLE entries MODIFY COLUMN period ENUM('AM','PM','EV','NT','XX')` + mettre à jour `period_codes()`/`period_labels()` dans `helpers.php`. Pas de migration data puisque ENUM étendu ne casse pas les valeurs existantes.
+- **Ajouter un slot_mode** : éditer `slot_modes()` dans `helpers.php`. Les codes doivent être **uniques** entre modes (pas de collision AM↔AM).
+- **Migration legacy** : si `config.php` legacy a `username`+`password_hash`, la 1ère ouverture de DB crée l'user #1 (app_admin) depuis ces valeurs et backfill `entries.user_id = 1` / `projects.created_by = 1` / `project_members(user=1, role=admin)` pour tous les projets existants.
 
 ## Déploiement serveur PHP
 1. Upload le dossier (sans `config.php`).
@@ -120,6 +146,24 @@ location ~ /\.(?!well-known) { deny all; return 404; }
 ```
 
 Vérifier après déploiement : `curl -I https://<domaine>/config.php` doit renvoyer 403/404, **pas** 200.
+
+Ajouter aussi (dump DB + scripts) :
+```nginx
+location ^~ /backups/ { deny all; return 404; }
+location ^~ /scripts/ { deny all; return 404; }
+```
+
+## Backup DB journalier
+Script shell : `scripts/backup.sh` — dump gzip vers `backups/YYYY-MM-DD.sql.gz`, rotation 14 jours (`LBTT_BACKUP_RETENTION` pour override).
+Le script lit les creds DB depuis `config.php` (zéro secret en dur) et utilise `--defaults-extra-file` pour ne pas exposer le mot de passe dans `ps`.
+
+**Crontab** (user app) :
+```cron
+0 3 * * * /chemin/vers/LBTimeTracker/scripts/backup.sh >> /chemin/vers/LBTimeTracker/data/backup.log 2>&1
+```
+Sur Plesk : **Outils & paramètres → Tâches planifiées**, même ligne.
+
+`backups/` est déjà ignoré par git + bloqué côté web (`.htaccess` + nginx).
 
 ## Test end-to-end rapide (nécessite MariaDB local)
 ```bash

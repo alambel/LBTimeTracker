@@ -62,7 +62,10 @@ if (str_starts_with($action, 'api_')) {
 
 switch ($action) {
     case 'login':
-        handle_login($config);
+        handle_login($db);
+        break;
+    case 'signup':
+        handle_signup($db);
         break;
     case 'logout':
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -71,9 +74,8 @@ switch ($action) {
             header('Location: index.php?action=login');
             exit;
         }
-        // GET → page de confirmation avec formulaire POST (évite CSRF via <img>)
         require_auth();
-        render_logout_confirm();
+        render_logout_confirm($db);
         exit;
     case 'calendar':
         require_auth();
@@ -86,6 +88,18 @@ switch ($action) {
     case 'projects':
         require_auth();
         render_projects($db);
+        break;
+    case 'team':
+        require_auth();
+        render_project_team($db);
+        break;
+    case 'profile':
+        require_auth();
+        render_profile($db);
+        break;
+    case 'users':
+        require_auth();
+        render_users_admin($db);
         break;
     default:
         http_response_code(404);

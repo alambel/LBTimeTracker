@@ -16,11 +16,19 @@
 <?php
     $currentUserName = current_user() ?? '';
     $avatarLetter = strtoupper(mb_substr($currentUserName, 0, 1, 'UTF-8'));
+    $isAppAdmin = false;
+    if (isset($db) && $db instanceof PDO) {
+        $meRow = current_user_row($db);
+        $isAppAdmin = $meRow && !empty($meRow['is_app_admin']);
+    }
     $navItems = [
         ['calendar', 'Calendrier', '01'],
         ['summary', 'Résumé', '02'],
         ['projects', 'Projets', '03'],
     ];
+    if ($isAppAdmin) {
+        $navItems[] = ['users', 'Utilisateurs', '04'];
+    }
 ?>
 <div class="lbtt-app">
     <aside class="lbtt-rail">
@@ -44,8 +52,10 @@
             <div class="lbtt-session-row">
                 <div class="lbtt-avatar"><?= e($avatarLetter !== '' ? $avatarLetter : 'A') ?></div>
                 <div>
-                    <div class="lbtt-session-name"><?= e($currentUserName) ?></div>
-                    <form method="post" action="index.php?action=logout" class="lbtt-logout-form">
+                    <div class="lbtt-session-name">
+                        <a href="index.php?action=profile" style="color: inherit; text-decoration: none;"><?= e($currentUserName) ?></a>
+                    </div>
+                    <form method="post" action="index.php?action=logout" class="lbtt-logout-form" data-confirm-logout>
                         <?= csrf_field() ?>
                         <button type="submit" class="lbtt-session-logout">Déconnexion →</button>
                     </form>
@@ -65,7 +75,7 @@
             <span class="lbl"><?= e(strtolower($label)) ?>.</span>
         </a>
     <?php endforeach; ?>
-    <form method="post" action="index.php?action=logout" class="lbtt-tab-logout-form">
+    <form method="post" action="index.php?action=logout" class="lbtt-tab-logout-form" data-confirm-logout>
         <?= csrf_field() ?>
         <button type="submit" class="lbtt-tab">
             <span class="ix">→</span>

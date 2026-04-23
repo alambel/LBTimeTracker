@@ -55,10 +55,8 @@ function handle_setup(): void {
             }
 
             if ($error === null) {
-                $hash = password_hash($p, PASSWORD_BCRYPT);
+                // 1) écrit config.php (sans credentials user — ils vont en DB)
                 $config = [
-                    'username' => $u,
-                    'password_hash' => $hash,
                     'session_name' => 'lbtt',
                     'timezone' => $tz,
                     'db' => $dbConfig,
@@ -68,8 +66,26 @@ function handle_setup(): void {
                     $error = 'Impossible d\'écrire config.php (permissions du répertoire ?).';
                 } else {
                     @chmod(CONFIG_PATH, 0600);
-                    header('Location: index.php?action=login&setup=done');
-                    exit;
+                    // 2) crée le 1er user en DB (app_admin) via db_init qui migre le schéma
+                    try {
+                        $db = db_init($dbConfig);
+                        $existing = get_user_by_username($db, $u);
+                        if ($existing) {
+                            // Si un user existe déjà (ex. setup relancé), pas d'écrasement silencieux
+                            if (!password_verify($p, (string)$existing['password_hash'])) {
+                                $error = 'Un utilisateur « ' . $u . ' » existe déjà en base avec un autre mot de passe.';
+                            }
+                        } else {
+                            $hash = password_hash($p, PASSWORD_BCRYPT);
+                            create_user($db, $u, $hash, true, 'hd4');
+                        }
+                    } catch (Throwable $e) {
+                        $error = 'Création de l\'utilisateur admin impossible : ' . $e->getMessage();
+                    }
+                    if ($error === null) {
+                        header('Location: index.php?action=login&setup=done');
+                        exit;
+                    }
                 }
             }
         }
