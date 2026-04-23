@@ -3,6 +3,25 @@ function e(?string $s): string {
     return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function valid_email(string $s): bool {
+    if ($s === '' || strlen($s) > 255) return false;
+    return filter_var($s, FILTER_VALIDATE_EMAIL) !== false;
+}
+
+function normalize_email(string $s): string {
+    return mb_strtolower(trim($s), 'UTF-8');
+}
+
+/** URL absolue de l'app (pour liens dans emails). */
+function app_url(): string {
+    $scheme = (function_exists('is_https') && is_https()) ? 'https' : 'http';
+    $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $script = (string)($_SERVER['SCRIPT_NAME'] ?? '/index.php');
+    // Base = dirname(script) si script != index.php sinon dirname ok
+    $dir = rtrim(str_replace('\\', '/', dirname($script)), '/');
+    return $scheme . '://' . $host . ($dir === '' ? '' : $dir) . '/index.php';
+}
+
 function month_title(string $month): string {
     $months = [
         '01' => 'Janvier', '02' => 'Février', '03' => 'Mars', '04' => 'Avril',

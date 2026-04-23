@@ -17,9 +17,11 @@
     $currentUserName = current_user() ?? '';
     $avatarLetter = strtoupper(mb_substr($currentUserName, 0, 1, 'UTF-8'));
     $isAppAdmin = false;
+    $needsEmail = false;
     if (isset($db) && $db instanceof PDO) {
         $meRow = current_user_row($db);
         $isAppAdmin = $meRow && !empty($meRow['is_app_admin']);
+        $needsEmail = $meRow && empty($meRow['email']);
     }
     $navItems = [
         ['calendar', 'Calendrier', '01'],
@@ -47,23 +49,26 @@
                 </a>
             <?php endforeach; ?>
         </nav>
-        <div class="lbtt-rail-session">
+        <a href="index.php?action=profile" class="lbtt-rail-session lbtt-rail-session-link<?= ($page ?? '') === 'profile' ? ' active' : '' ?>">
             <div class="lbtt-label" style="margin-bottom: 6px;">Session</div>
             <div class="lbtt-session-row">
                 <div class="lbtt-avatar"><?= e($avatarLetter !== '' ? $avatarLetter : 'A') ?></div>
                 <div>
-                    <div class="lbtt-session-name">
-                        <a href="index.php?action=profile" style="color: inherit; text-decoration: none;"><?= e($currentUserName) ?></a>
-                    </div>
-                    <form method="post" action="index.php?action=logout" class="lbtt-logout-form" data-confirm-logout>
-                        <?= csrf_field() ?>
-                        <button type="submit" class="lbtt-session-logout">Déconnexion →</button>
-                    </form>
+                    <div class="lbtt-session-name"><?= e($currentUserName) ?></div>
+                    <div class="lbtt-session-logout">Profil →</div>
                 </div>
             </div>
-        </div>
+        </a>
     </aside>
     <main class="lbtt-main">
+        <?php if ($needsEmail && ($page ?? '') !== 'profile'): ?>
+            <div class="lbtt-cal-tip" style="border-color: var(--lbtt-accent);">
+                <span class="lbtt-chip lbtt-chip-accent">Action requise</span>
+                <span class="lbtt-cal-tip-text">
+                    Ton compte n'a pas encore d'email — <a href="index.php?action=profile" style="text-decoration: underline;">ajoute-le ici</a> pour pouvoir recevoir des invitations.
+                </span>
+            </div>
+        <?php endif; ?>
         <?= $content ?>
         <?= format_deployment_footer() ?>
     </main>
@@ -75,13 +80,10 @@
             <span class="lbl"><?= e(strtolower($label)) ?>.</span>
         </a>
     <?php endforeach; ?>
-    <form method="post" action="index.php?action=logout" class="lbtt-tab-logout-form" data-confirm-logout>
-        <?= csrf_field() ?>
-        <button type="submit" class="lbtt-tab">
-            <span class="ix">→</span>
-            <span class="lbl">quitter.</span>
-        </button>
-    </form>
+    <a href="index.php?action=profile" class="lbtt-tab<?= ($page ?? '') === 'profile' ? ' active' : '' ?>">
+        <span class="ix"><?= e($avatarLetter !== '' ? $avatarLetter : 'A') ?></span>
+        <span class="lbl">profil.</span>
+    </a>
 </nav>
 <script src="<?= asset_url('assets/app.js') ?>"></script>
 </body>

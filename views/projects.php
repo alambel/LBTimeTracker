@@ -11,6 +11,22 @@ $meId = current_user_id();
 
 <?php if ($error ?? null): ?><div class="lbtt-error"><?= e($error) ?></div><?php endif; ?>
 
+<?php if (!empty($flash)):
+    $isInvited = ($flash['kind'] ?? '') === 'invited';
+?>
+<div class="lbtt-cal-tip" style="margin-bottom: 10px;">
+    <span class="lbtt-chip lbtt-chip-accent"><?= $isInvited ? 'Invitation' : 'OK' ?></span>
+    <span class="lbtt-cal-tip-text">
+        <?= e($flash['msg'] ?? '') ?>
+        <?php if (!empty($flash['url'])): ?>
+            <br><span style="font-family: var(--mono); font-size: 11px;">Lien :
+                <a href="<?= e($flash['url']) ?>" style="text-decoration: underline;"><?= e($flash['url']) ?></a>
+            </span>
+        <?php endif; ?>
+    </span>
+</div>
+<?php endif; ?>
+
 <form method="post" class="lbtt-proj-new" data-new-project>
     <?= csrf_field() ?>
     <input type="hidden" name="op" value="create">
@@ -130,15 +146,40 @@ $meId = current_user_id();
 
                     <form method="post" class="lbtt-proj-add-member">
                         <?= csrf_field() ?>
-                        <input type="hidden" name="op" value="add_member">
+                        <input type="hidden" name="op" value="invite">
                         <input type="hidden" name="id" value="<?= $pid ?>">
-                        <input class="lbtt-input" type="text" name="member_username" required placeholder="Nom d'utilisateur à inviter" maxlength="64">
-                        <select name="member_role" class="lbtt-select" style="font-size: 11px;">
+                        <input class="lbtt-input" type="email" name="invite_email" required placeholder="email à inviter" maxlength="255">
+                        <select name="invite_role" class="lbtt-select" style="font-size: 11px;">
                             <option value="member">member</option>
                             <option value="admin">admin</option>
                         </select>
-                        <button type="submit" class="lbtt-btn lbtt-btn-primary" style="font-size: 11px;">+ Ajouter</button>
+                        <button type="submit" class="lbtt-btn lbtt-btn-primary" style="font-size: 11px;">+ Inviter</button>
                     </form>
+
+                    <?php $pendingInvites = $invitationsByProject[$pid] ?? [];
+                          if (!empty($pendingInvites)): ?>
+                        <div class="lbtt-label" style="margin-top: 10px;">Invitations en attente</div>
+                        <?php foreach ($pendingInvites as $inv):
+                            $inviteUrl = 'index.php?action=signup&invite=' . urlencode((string)$inv['token']);
+                        ?>
+                            <div class="lbtt-proj-invite-row">
+                                <span class="lbtt-proj-invite-email"><?= e($inv['email']) ?></span>
+                                <span class="lbtt-role-badge lbtt-role-<?= e($inv['role']) ?>"><?= e($inv['role']) ?></span>
+                                <span class="lbtt-proj-invite-expires">exp. <?= e(date('d M', strtotime((string)$inv['expires_at']))) ?></span>
+                                <a href="<?= e($inviteUrl) ?>" class="lbtt-btn lbtt-btn-ghost" style="font-size: 10px;" target="_blank" rel="noopener">Lien</a>
+                                <form method="post" style="display: inline; margin: 0;">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="op" value="revoke_invitation">
+                                    <input type="hidden" name="id" value="<?= $pid ?>">
+                                    <input type="hidden" name="invitation_id" value="<?= (int)$inv['id'] ?>">
+                                    <button type="submit" class="lbtt-btn lbtt-btn-ghost lbtt-btn-danger" style="font-size: 10px;"
+                                            onclick="return confirm('Révoquer l\'invitation pour <?= e(addslashes($inv['email'])) ?> ?');">
+                                        Révoquer
+                                    </button>
+                                </form>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
             <?php else: ?>

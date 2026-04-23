@@ -38,14 +38,33 @@
     <div class="lbtt-login-right">
         <form method="post" action="index.php?action=signup" class="lbtt-login-form">
             <?= csrf_field() ?>
+            <?php if ($invitation ?? null): ?>
+                <input type="hidden" name="invite_token" value="<?= e($inviteToken) ?>">
+            <?php endif; ?>
             <div class="lbtt-label eyebrow">Inscription</div>
             <h1>créer un compte.</h1>
+            <?php if ($invitation ?? null): ?>
+                <div class="lbtt-cal-tip" style="margin-bottom: 10px;">
+                    <span class="lbtt-chip lbtt-chip-accent">Invitation</span>
+                    <span class="lbtt-cal-tip-text">
+                        Tu as été invité·e à rejoindre <strong><?= e($invitation['project_name']) ?></strong>
+                        (rôle : <?= e($invitation['role']) ?>). Crée ton compte pour accepter.
+                    </span>
+                </div>
+            <?php endif; ?>
             <?php if ($error ?? null): ?><div class="lbtt-error"><?= e($error) ?></div><?php endif; ?>
             <label>
                 <span class="lbtt-label">Nom d'utilisateur</span>
                 <input class="lbtt-input" type="text" name="username" required autofocus
                        minlength="2" maxlength="64" pattern="[A-Za-z0-9._\-]{2,64}"
                        autocomplete="username" value="<?= e($form['username'] ?? '') ?>">
+            </label>
+            <label>
+                <span class="lbtt-label">Email</span>
+                <input class="lbtt-input" type="email" name="email" required maxlength="255"
+                       autocomplete="email"
+                       value="<?= e($form['email'] ?? '') ?>"
+                       <?= ($invitation ?? null) ? 'readonly' : '' ?>>
             </label>
             <label>
                 <span class="lbtt-label">Mot de passe (6 car. min.)</span>

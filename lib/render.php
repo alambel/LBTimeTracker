@@ -177,15 +177,41 @@ function render_projects(PDO $db): void {
                 if (!user_is_project_admin($db, $id, $uid)) { throw new RuntimeException('Admin du projet requis.'); }
                 $p = get_project($db, $id);
                 if ($p) { update_project($db, $id, $p['name'], $p['color'], empty($p['archived'])); }
-            } elseif ($op === 'add_member') {
+            } elseif ($op === 'invite') {
                 $id = (int)($_POST['id'] ?? 0);
                 if (!user_is_project_admin($db, $id, $uid)) { throw new RuntimeException('Admin du projet requis.'); }
-                $username = trim((string)($_POST['member_username'] ?? ''));
-                $role = (string)($_POST['member_role'] ?? 'member');
-                $target = get_user_by_username($db, $username);
-                if (!$target) { throw new RuntimeException('Utilisateur « ' . $username . ' » introuvable.'); }
-                if (!empty($target['archived'])) { throw new RuntimeException('Utilisateur archivé.'); }
-                add_project_member($db, $id, (int)$target['id'], $role);
+                $email = normalize_email((string)($_POST['invite_email'] ?? ''));
+                $role = (string)($_POST['invite_role'] ?? 'member');
+                if (!in_array($role, ['admin','member'], true)) $role = 'member';
+                if (!valid_email($email)) { throw new RuntimeException('Adresse email invalide.'); }
+                $project = get_project($db, $id);
+                if (!$project) { throw new RuntimeException('Projet introuvable.'); }
+                $target = get_user_by_email($db, $email);
+                if ($target && !empty($target['archived'])) { throw new RuntimeException('Compte archivé, impossible d\'inviter.'); }
+
+                if ($target) {
+                    add_project_member($db, $id, (int)$target['id'], $role);
+                    $projectUrl = app_url() . '?action=team&id=' . $id;
+                    $sent = send_invitation_email($email, (string)$project['name'], $projectUrl, (string)$me['username'], true);
+                    $_SESSION['_flash_projects'] = [
+                        'kind' => 'direct_add',
+                        'msg'  => 'Ajouté : ' . $email . ($sent ? ' — email envoyé.' : ' — email non envoyé (voir log).'),
+                    ];
+                } else {
+                    $inv = create_or_refresh_invitation($db, $id, $email, $role, $uid);
+                    $inviteUrl = app_url() . '?action=signup&invite=' . urlencode((string)$inv['token']);
+                    $sent = send_invitation_email($email, (string)$project['name'], $inviteUrl, (string)$me['username'], false);
+                    $_SESSION['_flash_projects'] = [
+                        'kind' => 'invited',
+                        'msg'  => 'Invitation' . ($sent ? ' envoyée à ' : ' créée pour ') . $email . ' (expire dans 7 jours).',
+                        'url'  => $inviteUrl,
+                    ];
+                }
+            } elseif ($op === 'revoke_invitation') {
+                $id = (int)($_POST['id'] ?? 0);
+                $invId = (int)($_POST['invitation_id'] ?? 0);
+                if (!user_is_project_admin($db, $id, $uid)) { throw new RuntimeException('Admin du projet requis.'); }
+                revoke_invitation($db, $invId, $id);
             } elseif ($op === 'set_member_role') {
                 $id = (int)($_POST['id'] ?? 0);
                 if (!user_is_project_admin($db, $id, $uid)) { throw new RuntimeException('Admin du projet requis.'); }
@@ -216,11 +242,23 @@ function render_projects(PDO $db): void {
     }
     $projects = get_projects_for_user($db, $uid, true);
     $entryCounts = project_entry_counts_for_user($db, $uid);
-    // Membres par projet (indexé par project_id)
+    // Membres + invitations en attente par projet (indexé par project_id)
     $membersByProject = [];
+    $invitationsByProject = [];
     foreach ($projects as $p) {
-        $membersByProject[(int)$p['id']] = get_project_members($db, (int)$p['id']);
+        $pid = (int)$p['id'];
+        $membersByProject[$pid] = get_project_members($db, $pid);
+        // Invitations affichées uniquement aux admins du projet
+        if (($p['my_role'] ?? '') === 'admin') {
+            $invitationsByProject[$pid] = get_pending_invitations_for_project($db, $pid);
+        } else {
+            $invitationsByProject[$pid] = [];
+        }
     }
+
+    // Flash (invitation résultat)
+    $flash = $_SESSION['_flash_projects'] ?? null;
+    unset($_SESSION['_flash_projects']);
 
     $title = 'Projets — LBTimeTracker';
     $page = 'projects';
@@ -353,6 +391,17 @@ function render_profile(PDO $db): void {
                 if (!valid_slot_mode($mode)) throw new RuntimeException('Mode invalide');
                 update_user_slot_mode($db, $uid, $mode);
                 $notice = 'Granularité mise à jour.';
+            } elseif ($op === 'email') {
+                $email = normalize_email((string)($_POST['email'] ?? ''));
+                if (!valid_email($email)) throw new RuntimeException('Adresse email invalide.');
+                $existing = get_user_by_email($db, $email);
+                if ($existing && (int)$existing['id'] !== $uid) {
+                    throw new RuntimeException('Cette adresse est déjà utilisée par un autre compte.');
+                }
+                update_user_email($db, $uid, $email);
+                $consumed = auto_consume_invitations_for_email($db, $uid, $email);
+                $notice = 'Email mis à jour'
+                        . ($consumed > 0 ? ' — ajouté à ' . $consumed . ' projet' . ($consumed > 1 ? 's' : '') . ' en attente.' : '.');
             } elseif ($op === 'password') {
                 $curr = (string)($_POST['current_password'] ?? '');
                 $new = (string)($_POST['new_password'] ?? '');

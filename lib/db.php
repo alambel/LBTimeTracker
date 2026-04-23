@@ -57,14 +57,23 @@ function db_migrate(PDO $db): void {
         CREATE TABLE IF NOT EXISTS users (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(64) NOT NULL,
+            email VARCHAR(255) NULL,
             password_hash VARCHAR(255) NOT NULL,
             is_app_admin TINYINT(1) NOT NULL DEFAULT 0,
             slot_mode VARCHAR(8) NOT NULL DEFAULT 'hd4',
             archived TINYINT(1) NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_username (username)
+            UNIQUE KEY uq_username (username),
+            UNIQUE KEY uq_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+    // Ajout email pour installations existantes
+    if (!schema_has_column($db, 'users', 'email')) {
+        $db->exec("ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL AFTER username");
+    }
+    if (!schema_has_index($db, 'users', 'uq_email')) {
+        $db->exec("ALTER TABLE users ADD UNIQUE KEY uq_email (email)");
+    }
 
     // 2) projects (base)
     $db->exec("
@@ -123,6 +132,24 @@ function db_migrate(PDO $db): void {
             KEY idx_user (user_id),
             CONSTRAINT fk_pm_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
             CONSTRAINT fk_pm_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
+    // 4b) project_invitations
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS project_invitations (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            project_id INT UNSIGNED NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            role ENUM('admin','member') NOT NULL DEFAULT 'member',
+            token VARCHAR(64) NOT NULL,
+            invited_by INT UNSIGNED NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            UNIQUE KEY uq_token (token),
+            UNIQUE KEY uq_project_email (project_id, email),
+            KEY idx_email (email),
+            CONSTRAINT fk_pinv_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
 
@@ -190,6 +217,18 @@ function get_user_by_username(PDO $db, string $username): ?array {
     return $row ?: null;
 }
 
+function get_user_by_email(PDO $db, string $email): ?array {
+    $stmt = $db->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
+    $stmt->execute([$email]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+function update_user_email(PDO $db, int $userId, ?string $email): void {
+    $stmt = $db->prepare('UPDATE users SET email = ? WHERE id = ?');
+    $stmt->execute([$email, $userId]);
+}
+
 function get_user(PDO $db, int $id): ?array {
     $stmt = $db->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
     $stmt->execute([$id]);
@@ -204,9 +243,9 @@ function get_users(PDO $db, bool $includeArchived = false): array {
     return $db->query($sql)->fetchAll();
 }
 
-function create_user(PDO $db, string $username, string $passwordHash, bool $isAppAdmin, string $slotMode): int {
-    $stmt = $db->prepare('INSERT INTO users (username, password_hash, is_app_admin, slot_mode) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$username, $passwordHash, $isAppAdmin ? 1 : 0, $slotMode]);
+function create_user(PDO $db, string $username, string $passwordHash, bool $isAppAdmin, string $slotMode, ?string $email = null): int {
+    $stmt = $db->prepare('INSERT INTO users (username, email, password_hash, is_app_admin, slot_mode) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$username, $email, $passwordHash, $isAppAdmin ? 1 : 0, $slotMode]);
     return (int)$db->lastInsertId();
 }
 
@@ -457,4 +496,92 @@ function project_summary_by_member(PDO $db, int $projectId, string $from, string
     ");
     $stmt->execute([$from, $to, $projectId]);
     return $stmt->fetchAll();
+}
+
+/* ================================================================
+ * Project invitations (par email)
+ * ================================================================ */
+
+function create_or_refresh_invitation(PDO $db, int $projectId, string $email, string $role, ?int $invitedBy, int $expiresInDays = 7): array {
+    if (!in_array($role, ['admin','member'], true)) $role = 'member';
+    $token = bin2hex(random_bytes(24)); // 48 hex chars
+    $expiresAt = (new DateTime('+' . $expiresInDays . ' days'))->format('Y-m-d H:i:s');
+    $stmt = $db->prepare("
+        INSERT INTO project_invitations (project_id, email, role, token, invited_by, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            role = VALUES(role),
+            token = VALUES(token),
+            invited_by = VALUES(invited_by),
+            expires_at = VALUES(expires_at),
+            created_at = CURRENT_TIMESTAMP
+    ");
+    $stmt->execute([$projectId, $email, $role, $token, $invitedBy, $expiresAt]);
+    return ['token' => $token, 'expires_at' => $expiresAt];
+}
+
+function get_invitation_by_token(PDO $db, string $token): ?array {
+    $stmt = $db->prepare('
+        SELECT pi.*, p.name AS project_name, p.color AS project_color
+        FROM project_invitations pi
+        JOIN projects p ON p.id = pi.project_id
+        WHERE pi.token = ? AND pi.expires_at > NOW()
+        LIMIT 1
+    ');
+    $stmt->execute([$token]);
+    $r = $stmt->fetch();
+    return $r ?: null;
+}
+
+function get_pending_invitations_for_project(PDO $db, int $projectId): array {
+    $stmt = $db->prepare('
+        SELECT * FROM project_invitations
+        WHERE project_id = ? AND expires_at > NOW()
+        ORDER BY created_at DESC
+    ');
+    $stmt->execute([$projectId]);
+    return $stmt->fetchAll();
+}
+
+function get_pending_invitations_for_email(PDO $db, string $email): array {
+    $stmt = $db->prepare('
+        SELECT pi.*, p.name AS project_name
+        FROM project_invitations pi
+        JOIN projects p ON p.id = pi.project_id
+        WHERE pi.email = ? AND pi.expires_at > NOW()
+    ');
+    $stmt->execute([$email]);
+    return $stmt->fetchAll();
+}
+
+function consume_invitation_for_user(PDO $db, int $invitationId, int $userId): ?array {
+    $db->beginTransaction();
+    try {
+        $stmt = $db->prepare('SELECT project_id, role FROM project_invitations WHERE id = ? FOR UPDATE');
+        $stmt->execute([$invitationId]);
+        $inv = $stmt->fetch();
+        if (!$inv) { $db->rollBack(); return null; }
+        add_project_member($db, (int)$inv['project_id'], $userId, (string)$inv['role']);
+        $del = $db->prepare('DELETE FROM project_invitations WHERE id = ?');
+        $del->execute([$invitationId]);
+        $db->commit();
+        return ['project_id' => (int)$inv['project_id'], 'role' => (string)$inv['role']];
+    } catch (Throwable $e) {
+        $db->rollBack();
+        throw $e;
+    }
+}
+
+/** Consomme toutes les invitations en attente pour cet email → retourne le nombre. */
+function auto_consume_invitations_for_email(PDO $db, int $userId, string $email): int {
+    $pending = get_pending_invitations_for_email($db, $email);
+    foreach ($pending as $inv) {
+        consume_invitation_for_user($db, (int)$inv['id'], $userId);
+    }
+    return count($pending);
+}
+
+function revoke_invitation(PDO $db, int $invitationId, int $projectId): void {
+    $stmt = $db->prepare('DELETE FROM project_invitations WHERE id = ? AND project_id = ?');
+    $stmt->execute([$invitationId, $projectId]);
 }

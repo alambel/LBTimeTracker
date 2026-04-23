@@ -84,25 +84,44 @@ function handle_login(PDO $db): void {
 
 function handle_signup(PDO $db): void {
     $error = null;
-    $form = ['username' => '', 'slot_mode' => 'hd4'];
+    $form = ['username' => '', 'email' => '', 'slot_mode' => 'hd4'];
+
+    // Pré-remplissage via invitation (?invite=TOKEN)
+    $inviteToken = (string)($_GET['invite'] ?? $_POST['invite_token'] ?? '');
+    $invitation = null;
+    if ($inviteToken !== '') {
+        $invitation = get_invitation_by_token($db, $inviteToken);
+        if ($invitation) {
+            $form['email'] = (string)$invitation['email'];
+        }
+    }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         csrf_check_form_or_die();
-        // Rate-limit partagé avec login (abus signup == abus login)
         login_ratelimit_gc();
         $blocked = login_ratelimit_check();
         if ($blocked !== null) {
             $error = $blocked;
         } else {
             $u = trim((string)($_POST['username'] ?? ''));
+            $email = normalize_email((string)($_POST['email'] ?? ''));
             $p = (string)($_POST['password'] ?? '');
             $p2 = (string)($_POST['password2'] ?? '');
             $mode = (string)($_POST['slot_mode'] ?? 'hd4');
             $form['username'] = $u;
+            $form['email'] = $email;
             $form['slot_mode'] = $mode;
+
+            // Si invitation : l'email est figé (celui de l'invitation)
+            if ($invitation) {
+                $email = normalize_email((string)$invitation['email']);
+                $form['email'] = $email;
+            }
 
             if ($u === '' || !preg_match('/^[A-Za-z0-9._-]{2,64}$/', $u)) {
                 $error = 'Nom invalide (2–64 car., lettres, chiffres, . _ -).';
+            } elseif (!valid_email($email)) {
+                $error = 'Adresse email invalide.';
             } elseif (strlen($p) < 6) {
                 $error = 'Mot de passe trop court (6 car. min.).';
             } elseif (strlen($p) > 128) {
@@ -113,16 +132,21 @@ function handle_signup(PDO $db): void {
                 $error = 'Mode de créneaux invalide.';
             } elseif (get_user_by_username($db, $u)) {
                 $error = 'Ce nom d\'utilisateur est déjà pris.';
+            } elseif (get_user_by_email($db, $email)) {
+                $error = 'Cette adresse email a déjà un compte.';
             } else {
-                // 1er user créé via signup : pas d'app admin (déjà créé au setup).
                 $hash = password_hash($p, PASSWORD_BCRYPT);
                 try {
-                    $uid = create_user($db, $u, $hash, false, $mode);
+                    $uid = create_user($db, $u, $hash, false, $mode, $email);
                 } catch (Throwable $e) {
                     $error = 'Création impossible (' . $e->getMessage() . ').';
                     $uid = 0;
                 }
                 if ($uid > 0) {
+                    // Consomme les invitations en attente pour cet email
+                    try { auto_consume_invitations_for_email($db, $uid, $email); }
+                    catch (Throwable $e) { error_log('LBTT auto-consume failed: ' . $e->getMessage()); }
+
                     session_regenerate_id(true);
                     $_SESSION['uid'] = $uid;
                     $_SESSION['user'] = $u;

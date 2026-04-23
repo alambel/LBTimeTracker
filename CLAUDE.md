@@ -2,7 +2,7 @@
 
 Outil multi-user de suivi du temps par créneau. PHP + MariaDB, zéro dépendance Composer.
 
-Signup public ouvert. Chaque user choisit sa granularité (`hd2`=2×4h, `hd4`=4×4h, `hr10`=10×1h). Projets partageables avec rôles `admin`/`member`. Pas de suppression : users et projets s'archivent uniquement.
+Signup public ouvert (username + email + mot de passe). Chaque user choisit sa granularité (`hd2`=2×4h, `hd4`=4×4h, `hr10`=10×1h). Projets partageables avec rôles `admin`/`member`, invitations par **email** (token 7j si l'invité n'a pas encore de compte). Pas de suppression : users et projets s'archivent uniquement.
 
 ## Stack
 - PHP 8+ (utilise `str_starts_with`, nullsafe, union types)
@@ -22,7 +22,7 @@ Tout passe par `index.php?action=X` — pas de rewrite rule nécessaire.
 Actions :
 - `calendar` (défaut) — grille mensuelle perso, grille = slot_mode de l'user (hd2/hd4/hr10)
 - `summary` — agrégats par projet (en heures), filtre période, export CSV
-- `projects` — liste des projets dont je suis membre, partage/rôles (POST `op=create|update|archive_toggle|add_member|set_member_role|remove_member`)
+- `projects` — liste des projets dont je suis membre, partage/rôles (POST `op=create|update|archive_toggle|invite|revoke_invitation|set_member_role|remove_member`)
 - `team&id=N` — vue équipe d'un projet : calendrier avec initiales des membres + résumé par membre
 - `profile` — changer slot_mode ou mot de passe
 - `users` — app admin uniquement : archive/promouvoir app admin
@@ -41,6 +41,7 @@ Actions préfixées `api_*` → JSON + `require_auth()` renvoie 401 JSON au lieu
 | `lib/api.php` | Endpoints JSON |
 | `lib/setup.php` | Page de config initiale (écrit `config.php`) |
 | `lib/render.php` | Handlers des pages HTML (wrap `views/layout.php`) |
+| `lib/mail.php` | Wrapper `mail()` + `send_invitation_email()` (plain+html) |
 | `lib/helpers.php` | `e()` (escape), `month_title`, `shift_month`, `valid_date` |
 | `views/calendar.php` | Grille + `<dialog>` de saisie, projets injectés en `data-projects` JSON |
 | `assets/app.js` | Handler du dialog, appel `api_save_entry`, update DOM |
@@ -87,9 +88,19 @@ entries(
 
 ## Rôles et visibilité
 - **App admin** (flag `users.is_app_admin`) : le 1er user créé au setup l'est. Accès à `/users` pour archiver/promouvoir. Toujours ≥ 1 actif.
-- **Project admin** (`project_members.role = 'admin'`) : renomme/archive le projet, ajoute/retire des membres, change les rôles. Créateur = admin auto. Toujours ≥ 1 par projet.
+- **Project admin** (`project_members.role = 'admin'`) : renomme/archive le projet, invite/retire des membres, change les rôles. Créateur = admin auto. Toujours ≥ 1 par projet.
 - **Member** : saisit ses propres entrées sur les projets dont il est membre. Voit la vue équipe (lecture seule).
 - **Archivage** : `users.archived = 1` → login refusé, session tuée côté lecture. Entrées conservées, visibles en vue équipe avec badge *archivé*. Pareil côté projet.
+
+## Invitations par email
+- Table `project_invitations(project_id, email UNIQUE/project, role, token, expires_at)`. Expire à 7 jours.
+- **Admin invite par email** (page Projets → Gérer → champ email) :
+  - Si l'email match un user actif → `add_project_member` direct + email de notification.
+  - Sinon → `create_or_refresh_invitation` (upsert par `(project_id, email)`) + email avec lien `?action=signup&invite=TOKEN`.
+  - Le flash affiche toujours le lien en clair → l'admin peut le coller dans Slack/iMessage si l'email ne passe pas.
+- **Signup avec token** : email pré-rempli readonly ; à la création du compte, `auto_consume_invitations_for_email` traite *toutes* les invitations en attente pour cet email (pas juste celle du token).
+- **User legacy sans email** : banner dans le layout pointe vers `/profile`. Set email → auto-consume déclenché aussi.
+- **Mail** : `lib/mail.php` = wrapper PHP `mail()` multipart (plain+html), `From` configurable via `config.mail_from` / `config.mail_from_name` (défaut `noreply@<host>` / `LBTimeTracker`). Pas de SMTP — si l'hébergeur ne délivre pas, l'admin a toujours le lien en clair.
 
 ## Sécurité
 - `config.php` en mode 0600, contient uniquement les credentials MariaDB + `timezone` + `session_name`. Plus de hash user (migré en DB).

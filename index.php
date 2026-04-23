@@ -12,6 +12,7 @@ require BASE_DIR . '/lib/auth.php';
 require BASE_DIR . '/lib/api.php';
 require BASE_DIR . '/lib/setup.php';
 require BASE_DIR . '/lib/render.php';
+require BASE_DIR . '/lib/mail.php';
 
 send_security_headers();
 
