@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#fafaf7">
-    <title><?= e($title ?? 'LB Time Tracker') ?></title>
+    <title><?= e($title ?? 'LBTimeTracker') ?></title>
     <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,9 +27,9 @@
         <div>
             <div class="lbtt-brand">
                 <span class="lbtt-brand-mark" aria-hidden="true"></span>
-                <span class="lbtt-brand-code">LB — TT</span>
+                <span class="lbtt-brand-code">LBTT · V1</span>
             </div>
-            <div class="lbtt-rail-wordmark">carnet<br>d'heures.</div>
+            <div class="lbtt-rail-wordmark">LBTime<br>Tracker</div>
         </div>
         <nav class="lbtt-rail-nav" aria-label="Navigation principale">
             <?php foreach ($navItems as [$key, $label, $num]): ?>
@@ -52,9 +52,9 @@
     </aside>
     <main class="lbtt-main">
         <?= $content ?>
+        <?= format_deployment_footer() ?>
     </main>
 </div>
-<?= format_deployment_footer() ?>
 <nav class="lbtt-tabbar" aria-label="Navigation">
     <?php foreach ($navItems as [$key, $label, $num]): ?>
         <a href="index.php?action=<?= e($key) ?>" class="lbtt-tab<?= ($page ?? '') === $key ? ' active' : '' ?>">

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1a1a1a">
-    <title><?= e($title ?? 'Connexion — LB Time Tracker') ?></title>
+    <title><?= e($title ?? 'Connexion — LBTimeTracker') ?></title>
     <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,11 +17,11 @@
     <div class="lbtt-login-left">
         <div class="lbtt-login-head">
             <span class="lbtt-brand-mark"></span>
-            <span class="lbtt-mono">LB — TIME TRACKER · V1.0</span>
+            <span class="lbtt-mono">LBTIMETRACKER · V1.0</span>
         </div>
         <div>
             <div class="lbtt-login-wordmark">
-                carnet<br><span class="accent">d'heures.</span>
+                LBTime<br><span class="accent">Tracker</span>
             </div>
             <p class="lbtt-login-tagline">
                 Suivi du temps par créneau — matin, après-midi, soir, nuit. Une couleur par projet, un CSV par mois.

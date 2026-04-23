@@ -80,7 +80,7 @@ function handle_setup(): void {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#fafaf7">
-    <title>Configuration — LB Time Tracker</title>
+    <title>Configuration — LBTimeTracker</title>
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

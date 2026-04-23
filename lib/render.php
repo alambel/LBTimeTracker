@@ -97,7 +97,7 @@ function render_summary(PDO $db): void {
     $fromLabel = _fr_short_date($from);
     $toLabel = _fr_short_date($to);
 
-    $title = 'Résumé — LB Time Tracker';
+    $title = 'Résumé — LBTimeTracker';
     $page = 'summary';
     ob_start();
     include BASE_DIR . '/views/summary.php';
@@ -149,7 +149,7 @@ function render_projects(PDO $db): void {
     }
     $projects = get_projects($db, true);
     $entryCounts = project_entry_counts($db);
-    $title = 'Projets — LB Time Tracker';
+    $title = 'Projets — LBTimeTracker';
     $page = 'projects';
     ob_start();
     include BASE_DIR . '/views/projects.php';

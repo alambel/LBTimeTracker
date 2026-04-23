@@ -185,13 +185,16 @@ function format_deployment_footer(): string {
         }
     }
 
-    $html = '<footer class="footer">';
-    $html .= '<span class="footer-hash" title="' . e($info['hash']) . '">' . e($shortHash) . '</span>';
-    if (!empty($info['subject'])) {
-        $html .= '<span class="footer-subject" title="' . e($info['subject']) . '">' . e($info['subject']) . '</span>';
-    }
+    $html = '<footer class="lbtt-footer" role="contentinfo">';
+    $html .= '<span class="lbtt-footer-label">Édition</span>';
+    $html .= '<span class="lbtt-footer-hash" title="' . e($info['hash']) . '">' . e($shortHash) . '</span>';
     if ($dateStr !== '') {
-        $html .= '<span class="footer-date">déployé le ' . e($dateStr) . '</span>';
+        $html .= '<span class="lbtt-footer-sep" aria-hidden="true">·</span>';
+        $html .= '<span class="lbtt-footer-date">' . e($dateStr) . '</span>';
+    }
+    if (!empty($info['subject'])) {
+        $html .= '<span class="lbtt-footer-sep" aria-hidden="true">·</span>';
+        $html .= '<span class="lbtt-footer-subject" title="' . e($info['subject']) . '">' . e($info['subject']) . '</span>';
     }
     $html .= '</footer>';
     return $html;

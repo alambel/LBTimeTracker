@@ -43,7 +43,7 @@ function handle_login(array $config): void {
             $error = 'Identifiants incorrects';
         }
     }
-    $title = 'Connexion — LB Time Tracker';
+    $title = 'Connexion — LBTimeTracker';
     include BASE_DIR . '/views/login.php';
 }
 

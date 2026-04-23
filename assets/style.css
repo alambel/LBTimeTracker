@@ -158,7 +158,7 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 .lbtt-rail-wordmark {
     font-family: var(--serif); font-size: 22px; margin-top: 8px; line-height: 1;
-    text-transform: lowercase; letter-spacing: -0.02em; font-weight: 400;
+    letter-spacing: -0.02em; font-weight: 400;
 }
 .lbtt-rail-nav { display: flex; flex-direction: column; }
 .lbtt-rail-nav-item {
@@ -226,7 +226,7 @@ input, select, textarea { font-family: inherit; color: inherit; }
 }
 .lbtt-login-wordmark {
     font-family: var(--serif); font-size: 88px; line-height: 0.9;
-    text-transform: lowercase; letter-spacing: -0.04em; font-weight: 400;
+    letter-spacing: -0.04em; font-weight: 400;
 }
 .lbtt-login-wordmark .accent { color: var(--lbtt-accent); }
 .lbtt-login-tagline {
@@ -644,34 +644,77 @@ input, select, textarea { font-family: inherit; color: inherit; }
     margin-top: 12px; letter-spacing: 0.1em; text-transform: uppercase;
 }
 
-/* ========== Footer ========== */
+/* ========== Footer (colophon éditorial) ========== */
 .lbtt-footer {
-    padding: 14px 20px;
-    color: var(--lbtt-muted);
-    font-size: 11px;
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
+    margin-top: 48px;
+    padding: 14px 0 4px;
     border-top: 1px solid var(--lbtt-rule);
-    background: var(--lbtt-paper-2);
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--lbtt-muted);
+    background: transparent;
+}
+.lbtt-footer-label {
+    font-weight: 500;
 }
 .lbtt-footer-hash {
-    font-family: var(--mono); font-size: 10px;
-    color: var(--lbtt-ink-2);
-    padding: 2px 7px;
-    background: var(--lbtt-paper-3);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--lbtt-ink);
     letter-spacing: 0.04em;
+    text-transform: none;
 }
-.lbtt-footer-subject {
-    max-width: 520px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    font-family: var(--sans); font-size: 12px;
+.lbtt-footer-sep {
+    color: var(--lbtt-faint);
+    letter-spacing: 0;
+    font-size: 10px;
+    user-select: none;
 }
 .lbtt-footer-date {
-    font-family: var(--mono); font-feature-settings: "tnum"; letter-spacing: 0.04em;
-    font-size: 10.5px;
+    font-family: var(--mono);
+    font-feature-settings: "tnum";
+    letter-spacing: 0.06em;
+    color: var(--lbtt-muted);
+}
+.lbtt-footer-subject {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--lbtt-ink-2);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+/* Footer sur login / setup (hors .lbtt-main) : position dépouillée en bas */
+body > .lbtt-footer,
+.lbtt-login ~ .lbtt-footer,
+.lbtt-setup + .lbtt-footer {
+    position: fixed;
+    bottom: 8px;
+    right: 14px;
+    left: auto;
+    margin-top: 0;
+    padding: 0;
+    border-top: none;
+    background: transparent;
+    max-width: 420px;
+    gap: 8px;
+    pointer-events: none;
+}
+body > .lbtt-footer .lbtt-footer-subject,
+.lbtt-login ~ .lbtt-footer .lbtt-footer-subject {
+    display: none;
 }
 
 /* ========== Mobile tab bar ========== */
@@ -770,6 +813,22 @@ input, select, textarea { font-family: inherit; color: inherit; }
     }
 
     .lbtt-setup-grid { grid-template-columns: 1fr 1fr; }
+
+    /* Footer compact sur mobile */
+    .lbtt-footer {
+        font-size: 9px;
+        gap: 8px;
+        margin-top: 28px;
+        padding-top: 12px;
+    }
+    .lbtt-footer-hash { font-size: 9.5px; }
+    .lbtt-footer-date { font-size: 9px; }
+    .lbtt-footer-subject { font-size: 11px; }
+    /* Évite le conflit avec le bottom tabbar sur login/setup */
+    body > .lbtt-footer,
+    .lbtt-login ~ .lbtt-footer { bottom: auto; top: auto; position: static; margin: 18px 18px 12px; text-align: center; justify-content: center; }
+    body > .lbtt-footer .lbtt-footer-subject,
+    .lbtt-login ~ .lbtt-footer .lbtt-footer-subject { display: none; }
 }
 
 @keyframes lbttSheetUp {
