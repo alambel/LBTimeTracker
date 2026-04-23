@@ -48,11 +48,11 @@ $userColor = function(int $uid): string {
 </div>
 
 <!-- Légende membres -->
-<div class="lbtt-cal-legend">
+<div class="lbtt-team-legend">
     <?php foreach ($members as $m): ?>
-        <span class="lbtt-tag">
-            <span class="lbtt-tag-dot lbtt-team-avatar" style="background: <?= e($userColor((int)$m['id'])) ?>;"><?= e($initialsFor((string)$m['username'])) ?></span>
-            <?= e($m['username']) ?>
+        <span class="lbtt-team-legend-item">
+            <span class="lbtt-team-avatar" style="background: <?= e($userColor((int)$m['id'])) ?>;"><?= e($initialsFor((string)$m['username'])) ?></span>
+            <span class="nm"><?= e($m['username']) ?></span>
             <?php if ($m['role'] === 'admin'): ?><span class="lbtt-role-badge lbtt-role-admin">admin</span><?php endif; ?>
         </span>
     <?php endforeach; ?>
@@ -60,9 +60,13 @@ $userColor = function(int $uid): string {
 
 <!-- Grille mois : un "tuile jour" avec initiales empilées des contributions -->
 <div class="lbtt-team-grid">
-    <div class="lbtt-cal-weekdays">
-        <?php foreach (weekday_names_fr_long() as $wd): ?>
-            <div><?= e($wd) ?></div>
+    <div class="lbtt-team-weekdays">
+        <?php
+            $wdLong = weekday_names_fr_long();
+            $wdShort = weekday_letters_fr();
+            foreach ($wdLong as $i => $wd):
+        ?>
+            <div><span class="wd-long"><?= e($wd) ?></span><span class="wd-short"><?= e($wdShort[$i]) ?></span></div>
         <?php endforeach; ?>
     </div>
     <div class="lbtt-team-cells">
