@@ -12,6 +12,39 @@ function normalize_email(string $s): string {
     return mb_strtolower(trim($s), 'UTF-8');
 }
 
+/** Nom affiché : « Prénom Nom » si renseigné, sinon username. */
+function display_name(array $user): string {
+    $fn = trim((string)($user['first_name'] ?? ''));
+    $ln = trim((string)($user['last_name'] ?? ''));
+    $full = trim($fn . ' ' . $ln);
+    if ($full !== '') return $full;
+    return (string)($user['username'] ?? '');
+}
+
+/** Initiales (1 à 2 caractères) à partir d'un nom. */
+function user_initials(string $name): string {
+    $parts = preg_split('/[\s._\-]+/u', $name) ?: [$name];
+    $out = '';
+    foreach ($parts as $p) {
+        if ($p === '') continue;
+        $out .= mb_strtoupper(mb_substr($p, 0, 1, 'UTF-8'), 'UTF-8');
+        if (mb_strlen($out, 'UTF-8') >= 2) break;
+    }
+    return $out !== '' ? $out : mb_strtoupper(mb_substr($name, 0, 1, 'UTF-8'), 'UTF-8');
+}
+
+/** Couleur déterministe par user_id (teinte HSL) — utilisée si pas d'avatar. */
+function user_color_hsl(int $userId): string {
+    $h = (int)($userId * 137 % 360);
+    return 'hsl(' . $h . ' 55% 48%)';
+}
+
+/** URL relative de l'avatar d'un user (ou null si pas défini). */
+function avatar_url(array $user): ?string {
+    if (empty($user['avatar_path'])) return null;
+    return 'index.php?action=avatar&id=' . (int)$user['id'];
+}
+
 /** URL absolue de l'app (pour liens dans emails). */
 function app_url(): string {
     $scheme = (function_exists('is_https') && is_https()) ? 'https' : 'http';

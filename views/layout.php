@@ -15,14 +15,17 @@
 <body data-page="<?= e($page ?? '') ?>">
 <?php
     $currentUserName = current_user() ?? '';
-    $avatarLetter = strtoupper(mb_substr($currentUserName, 0, 1, 'UTF-8'));
     $isAppAdmin = false;
     $needsEmail = false;
+    $meRow = null;
     if (isset($db) && $db instanceof PDO) {
         $meRow = current_user_row($db);
         $isAppAdmin = $meRow && !empty($meRow['is_app_admin']);
         $needsEmail = $meRow && empty($meRow['email']);
     }
+    $displayName = $meRow ? display_name($meRow) : $currentUserName;
+    $initials = user_initials($displayName);
+    $myAvatar = $meRow ? avatar_url($meRow) : null;
     $navItems = [
         ['calendar', 'Calendrier', '01'],
         ['summary', 'Résumé', '02'],
@@ -52,9 +55,15 @@
         <a href="index.php?action=profile" class="lbtt-rail-session lbtt-rail-session-link<?= ($page ?? '') === 'profile' ? ' active' : '' ?>">
             <div class="lbtt-label" style="margin-bottom: 6px;">Session</div>
             <div class="lbtt-session-row">
-                <div class="lbtt-avatar"><?= e($avatarLetter !== '' ? $avatarLetter : 'A') ?></div>
+                <div class="lbtt-avatar<?= $myAvatar ? ' has-image' : '' ?>">
+                    <?php if ($myAvatar): ?>
+                        <img src="<?= e($myAvatar) ?>" alt="">
+                    <?php else: ?>
+                        <?= e($initials !== '' ? $initials : 'A') ?>
+                    <?php endif; ?>
+                </div>
                 <div>
-                    <div class="lbtt-session-name"><?= e($currentUserName) ?></div>
+                    <div class="lbtt-session-name"><?= e($displayName) ?></div>
                     <div class="lbtt-session-logout">Profil →</div>
                 </div>
             </div>
@@ -81,7 +90,13 @@
         </a>
     <?php endforeach; ?>
     <a href="index.php?action=profile" class="lbtt-tab<?= ($page ?? '') === 'profile' ? ' active' : '' ?>">
-        <span class="ix"><?= e($avatarLetter !== '' ? $avatarLetter : 'A') ?></span>
+        <span class="ix">
+            <?php if ($myAvatar): ?>
+                <img src="<?= e($myAvatar) ?>" alt="" class="lbtt-tab-avatar">
+            <?php else: ?>
+                <?= e($initials !== '' ? $initials : 'A') ?>
+            <?php endif; ?>
+        </span>
         <span class="lbl">profil.</span>
     </a>
 </nav>

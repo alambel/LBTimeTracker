@@ -84,7 +84,7 @@ function handle_login(PDO $db): void {
 
 function handle_signup(PDO $db): void {
     $error = null;
-    $form = ['username' => '', 'email' => '', 'slot_mode' => 'hd4'];
+    $form = ['username' => '', 'email' => '', 'first_name' => '', 'last_name' => '', 'slot_mode' => 'hd4'];
 
     // Pré-remplissage via invitation (?invite=TOKEN)
     $inviteToken = (string)($_GET['invite'] ?? $_POST['invite_token'] ?? '');
@@ -105,11 +105,15 @@ function handle_signup(PDO $db): void {
         } else {
             $u = trim((string)($_POST['username'] ?? ''));
             $email = normalize_email((string)($_POST['email'] ?? ''));
+            $firstName = sanitize_name((string)($_POST['first_name'] ?? ''), 64);
+            $lastName = sanitize_name((string)($_POST['last_name'] ?? ''), 64);
             $p = (string)($_POST['password'] ?? '');
             $p2 = (string)($_POST['password2'] ?? '');
             $mode = (string)($_POST['slot_mode'] ?? 'hd4');
             $form['username'] = $u;
             $form['email'] = $email;
+            $form['first_name'] = $firstName;
+            $form['last_name'] = $lastName;
             $form['slot_mode'] = $mode;
 
             // Si invitation : l'email est figé (celui de l'invitation)
@@ -138,6 +142,9 @@ function handle_signup(PDO $db): void {
                 $hash = password_hash($p, PASSWORD_BCRYPT);
                 try {
                     $uid = create_user($db, $u, $hash, false, $mode, $email);
+                    if ($firstName !== '' || $lastName !== '') {
+                        update_user_name($db, $uid, $firstName === '' ? null : $firstName, $lastName === '' ? null : $lastName);
+                    }
                 } catch (Throwable $e) {
                     $error = 'Création impossible (' . $e->getMessage() . ').';
                     $uid = 0;

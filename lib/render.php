@@ -402,6 +402,29 @@ function render_profile(PDO $db): void {
                 $consumed = auto_consume_invitations_for_email($db, $uid, $email);
                 $notice = 'Email mis à jour'
                         . ($consumed > 0 ? ' — ajouté à ' . $consumed . ' projet' . ($consumed > 1 ? 's' : '') . ' en attente.' : '.');
+            } elseif ($op === 'identity') {
+                $fn = sanitize_name((string)($_POST['first_name'] ?? ''), 64);
+                $ln = sanitize_name((string)($_POST['last_name'] ?? ''), 64);
+                update_user_name($db, $uid, $fn === '' ? null : $fn, $ln === '' ? null : $ln);
+                $avatarNote = '';
+                if (!empty($_FILES['avatar']['name'] ?? '')) {
+                    try {
+                        $old = $me['avatar_path'] ?? null;
+                        $newFile = save_user_avatar($uid, $_FILES['avatar']);
+                        update_user_avatar($db, $uid, $newFile);
+                        if ($old) delete_avatar_file((string)$old);
+                        $avatarNote = ' Photo mise à jour.';
+                    } catch (Throwable $e) {
+                        $error = 'Photo : ' . $e->getMessage();
+                    }
+                }
+                if (!$error) $notice = 'Identité mise à jour.' . $avatarNote;
+            } elseif ($op === 'remove_avatar') {
+                if (!empty($me['avatar_path'])) {
+                    delete_avatar_file((string)$me['avatar_path']);
+                    update_user_avatar($db, $uid, null);
+                }
+                $notice = 'Photo supprimée.';
             } elseif ($op === 'password') {
                 $curr = (string)($_POST['current_password'] ?? '');
                 $new = (string)($_POST['new_password'] ?? '');

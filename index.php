@@ -13,6 +13,7 @@ require BASE_DIR . '/lib/api.php';
 require BASE_DIR . '/lib/setup.php';
 require BASE_DIR . '/lib/render.php';
 require BASE_DIR . '/lib/mail.php';
+require BASE_DIR . '/lib/image.php';
 
 send_security_headers();
 
@@ -102,6 +103,15 @@ switch ($action) {
         require_auth();
         render_users_admin($db);
         break;
+    case 'avatar':
+        require_auth();
+        $targetId = (int)($_GET['id'] ?? 0);
+        $target = $targetId > 0 ? get_user($db, $targetId) : null;
+        if (!$target || empty($target['avatar_path']) || !stream_avatar((string)$target['avatar_path'])) {
+            http_response_code(404);
+            exit;
+        }
+        exit;
     default:
         http_response_code(404);
         echo '404 not found';

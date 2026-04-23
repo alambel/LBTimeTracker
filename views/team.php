@@ -1,19 +1,18 @@
 <?php
-// Initiales + couleur par membre
-$initialsFor = function(string $name): string {
-    $parts = preg_split('/[\s._-]+/u', $name) ?: [$name];
-    $out = '';
-    foreach ($parts as $p) {
-        if ($p === '') continue;
-        $out .= mb_strtoupper(mb_substr($p, 0, 1, 'UTF-8'), 'UTF-8');
-        if (mb_strlen($out, 'UTF-8') >= 2) break;
+/**
+ * Rend l'avatar d'un membre — photo si définie, sinon initiales sur fond coloré.
+ * $user doit contenir au minimum: id, username, first_name, last_name, avatar_path.
+ */
+$renderAvatar = function(array $u) {
+    $id = (int)($u['id'] ?? $u['user_id'] ?? 0);
+    $u['id'] = $id;
+    $name = display_name($u);
+    $img = avatar_url($u);
+    if ($img) {
+        return '<span class="lbtt-team-avatar has-image"><img src="' . e($img) . '" alt=""></span>';
     }
-    return $out !== '' ? $out : mb_strtoupper(mb_substr($name, 0, 1, 'UTF-8'), 'UTF-8');
-};
-// Couleur déterministe par user_id (teinte HSL)
-$userColor = function(int $uid): string {
-    $h = (int)($uid * 137 % 360);
-    return 'hsl(' . $h . ' 55% 48%)';
+    $color = user_color_hsl($id);
+    return '<span class="lbtt-team-avatar" style="background: ' . e($color) . ';">' . e(user_initials($name)) . '</span>';
 };
 ?>
 <div class="lbtt-page-head">
@@ -51,8 +50,8 @@ $userColor = function(int $uid): string {
 <div class="lbtt-team-legend">
     <?php foreach ($members as $m): ?>
         <span class="lbtt-team-legend-item">
-            <span class="lbtt-team-avatar" style="background: <?= e($userColor((int)$m['id'])) ?>;"><?= e($initialsFor((string)$m['username'])) ?></span>
-            <span class="nm"><?= e($m['username']) ?></span>
+            <?= $renderAvatar($m) ?>
+            <span class="nm"><?= e(display_name($m)) ?></span>
             <?php if ($m['role'] === 'admin'): ?><span class="lbtt-role-badge lbtt-role-admin">admin</span><?php endif; ?>
         </span>
     <?php endforeach; ?>
@@ -100,13 +99,12 @@ $userColor = function(int $uid): string {
                 </div>
                 <div class="lbtt-team-cell-users">
                     <?php foreach ($byUser as $u):
-                        $uid2 = (int)$u['user']['user_id'];
-                        $col = $userColor($uid2);
+                        // $u['user'] a username+first_name+last_name+avatar_path+user_id
+                        $userRow = $u['user'];
+                        $userRow['id'] = (int)$userRow['user_id'];
+                        $title = display_name($userRow) . ' — ' . number_format($u['minutes']/60, 1, ',', '') . 'h';
                     ?>
-                        <span class="lbtt-team-avatar" style="background: <?= e($col) ?>;"
-                              title="<?= e((string)$u['user']['username']) ?> — <?= number_format($u['minutes']/60, 1, ',', '') ?>h">
-                            <?= e($initialsFor((string)$u['user']['username'])) ?>
-                        </span>
+                        <span title="<?= e($title) ?>"><?= $renderAvatar($userRow) ?></span>
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -134,10 +132,11 @@ $userColor = function(int $uid): string {
         $pct = $projectTotalMinutes ? 100 * (int)$r['total_minutes'] / $projectTotalMinutes : 0;
         $h = (int)$r['total_minutes'] / 60;
     ?>
+        <?php $r['id'] = (int)$r['user_id']; ?>
         <div class="lbtt-table-row">
             <div class="lbtt-proj-cell">
-                <span class="lbtt-team-avatar" style="background: <?= e($userColor((int)$r['user_id'])) ?>;"><?= e($initialsFor((string)$r['username'])) ?></span>
-                <span class="nm"><?= e($r['username']) ?><?php if (!empty($r['archived'])): ?> <span class="lbtt-chip" style="margin-left: 6px;">archivé</span><?php endif; ?></span>
+                <?= $renderAvatar($r) ?>
+                <span class="nm"><?= e(display_name($r)) ?><?php if (!empty($r['archived'])): ?> <span class="lbtt-chip" style="margin-left: 6px;">archivé</span><?php endif; ?></span>
             </div>
             <div class="lbtt-num lbtt-num-md"><?= (int)$r['entry_count'] ?></div>
             <div class="lbtt-num lbtt-num-md"><?= number_format($h, 2, ',', ' ') ?></div>

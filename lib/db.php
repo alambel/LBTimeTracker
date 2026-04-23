@@ -58,6 +58,9 @@ function db_migrate(PDO $db): void {
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(64) NOT NULL,
             email VARCHAR(255) NULL,
+            first_name VARCHAR(64) NULL,
+            last_name VARCHAR(64) NULL,
+            avatar_path VARCHAR(255) NULL,
             password_hash VARCHAR(255) NOT NULL,
             is_app_admin TINYINT(1) NOT NULL DEFAULT 0,
             slot_mode VARCHAR(8) NOT NULL DEFAULT 'hd4',
@@ -73,6 +76,16 @@ function db_migrate(PDO $db): void {
     }
     if (!schema_has_index($db, 'users', 'uq_email')) {
         $db->exec("ALTER TABLE users ADD UNIQUE KEY uq_email (email)");
+    }
+    // Profil : prénom, nom, avatar
+    if (!schema_has_column($db, 'users', 'first_name')) {
+        $db->exec("ALTER TABLE users ADD COLUMN first_name VARCHAR(64) NULL AFTER email");
+    }
+    if (!schema_has_column($db, 'users', 'last_name')) {
+        $db->exec("ALTER TABLE users ADD COLUMN last_name VARCHAR(64) NULL AFTER first_name");
+    }
+    if (!schema_has_column($db, 'users', 'avatar_path')) {
+        $db->exec("ALTER TABLE users ADD COLUMN avatar_path VARCHAR(255) NULL AFTER last_name");
     }
 
     // 2) projects (base)
@@ -229,6 +242,16 @@ function update_user_email(PDO $db, int $userId, ?string $email): void {
     $stmt->execute([$email, $userId]);
 }
 
+function update_user_name(PDO $db, int $userId, ?string $firstName, ?string $lastName): void {
+    $stmt = $db->prepare('UPDATE users SET first_name = ?, last_name = ? WHERE id = ?');
+    $stmt->execute([$firstName, $lastName, $userId]);
+}
+
+function update_user_avatar(PDO $db, int $userId, ?string $avatarPath): void {
+    $stmt = $db->prepare('UPDATE users SET avatar_path = ? WHERE id = ?');
+    $stmt->execute([$avatarPath, $userId]);
+}
+
 function get_user(PDO $db, int $id): ?array {
     $stmt = $db->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
     $stmt->execute([$id]);
@@ -237,7 +260,7 @@ function get_user(PDO $db, int $id): ?array {
 }
 
 function get_users(PDO $db, bool $includeArchived = false): array {
-    $sql = 'SELECT id, username, is_app_admin, slot_mode, archived, created_at FROM users'
+    $sql = 'SELECT id, username, email, first_name, last_name, avatar_path, is_app_admin, slot_mode, archived, created_at FROM users'
         . ($includeArchived ? '' : ' WHERE archived = 0')
         . ' ORDER BY archived, username';
     return $db->query($sql)->fetchAll();
@@ -320,7 +343,8 @@ function update_project(PDO $db, int $id, string $name, string $color, bool $arc
  * ================================================================ */
 function get_project_members(PDO $db, int $projectId): array {
     $stmt = $db->prepare('
-        SELECT u.id, u.username, u.slot_mode, u.archived, pm.role
+        SELECT u.id, u.username, u.first_name, u.last_name, u.avatar_path,
+               u.slot_mode, u.archived, pm.role
         FROM project_members pm
         JOIN users u ON u.id = pm.user_id
         WHERE pm.project_id = ?
@@ -391,7 +415,7 @@ function get_entries_between(PDO $db, int $userId, string $from, string $to): ar
 function get_project_entries_between(PDO $db, int $projectId, string $from, string $to): array {
     $stmt = $db->prepare('
         SELECT e.id, e.user_id, e.date, e.period, e.project_id, e.note, e.updated_at,
-               u.username, u.slot_mode,
+               u.username, u.first_name, u.last_name, u.avatar_path, u.slot_mode,
                p.name AS project_name, p.color AS project_color
         FROM entries e
         JOIN users u ON u.id = e.user_id
@@ -484,14 +508,15 @@ function project_summary_by_member(PDO $db, int $projectId, string $from, string
         : '0';
 
     $stmt = $db->prepare("
-        SELECT u.id AS user_id, u.username, u.slot_mode, u.archived,
+        SELECT u.id AS user_id, u.username, u.first_name, u.last_name, u.avatar_path,
+               u.slot_mode, u.archived,
                COUNT(e.id) AS entry_count,
                COALESCE(SUM($caseSql), 0) AS total_minutes
         FROM project_members pm
         JOIN users u ON u.id = pm.user_id
         LEFT JOIN entries e ON e.project_id = pm.project_id AND e.user_id = u.id AND e.date BETWEEN ? AND ?
         WHERE pm.project_id = ?
-        GROUP BY u.id, u.username, u.slot_mode, u.archived
+        GROUP BY u.id, u.username, u.first_name, u.last_name, u.avatar_path, u.slot_mode, u.archived
         ORDER BY total_minutes DESC, u.username
     ");
     $stmt->execute([$from, $to, $projectId]);

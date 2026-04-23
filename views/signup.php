@@ -66,6 +66,20 @@
                        value="<?= e($form['email'] ?? '') ?>"
                        <?= ($invitation ?? null) ? 'readonly' : '' ?>>
             </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <label>
+                    <span class="lbtt-label">Prénom</span>
+                    <input class="lbtt-input" type="text" name="first_name" maxlength="64"
+                           autocomplete="given-name"
+                           value="<?= e($form['first_name'] ?? '') ?>">
+                </label>
+                <label>
+                    <span class="lbtt-label">Nom</span>
+                    <input class="lbtt-input" type="text" name="last_name" maxlength="64"
+                           autocomplete="family-name"
+                           value="<?= e($form['last_name'] ?? '') ?>">
+                </label>
+            </div>
             <label>
                 <span class="lbtt-label">Mot de passe (6 car. min.)</span>
                 <input class="lbtt-input" type="password" name="password" required minlength="6" maxlength="128" autocomplete="new-password">

@@ -23,10 +23,22 @@
     </div>
     <?php foreach ($users as $u):
         $isMe = (int)$u['id'] === (int)$meId;
+        $uAvatar = avatar_url($u);
+        $uInitials = user_initials(display_name($u));
+        $uColor = user_color_hsl((int)$u['id']);
     ?>
         <div class="lbtt-table-row">
             <div class="lbtt-proj-cell">
-                <span class="nm"><?= e($u['username']) ?><?php if ($isMe): ?> <span style="color: var(--lbtt-muted);">(moi)</span><?php endif; ?></span>
+                <?php if ($uAvatar): ?>
+                    <span class="lbtt-team-avatar has-image"><img src="<?= e($uAvatar) ?>" alt=""></span>
+                <?php else: ?>
+                    <span class="lbtt-team-avatar" style="background: <?= e($uColor) ?>;"><?= e($uInitials) ?></span>
+                <?php endif; ?>
+                <span class="nm">
+                    <?= e(display_name($u)) ?>
+                    <span style="color: var(--lbtt-muted); font-size: 11px;"> @<?= e($u['username']) ?></span>
+                    <?php if ($isMe): ?> <span style="color: var(--lbtt-muted);">(moi)</span><?php endif; ?>
+                </span>
             </div>
             <div style="font-family: var(--mono); font-size: 11px;"><?= e($u['slot_mode']) ?></div>
             <div>
