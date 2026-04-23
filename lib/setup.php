@@ -80,7 +80,7 @@ function handle_setup(): void {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="<?= asset_url('assets/style.css') ?>">
 </head>
 <body>
 <form method="post" class="lbtt-setup" data-setup-wizard>
@@ -173,7 +173,7 @@ function handle_setup(): void {
     </div>
 </form>
 <?= format_deployment_footer() ?>
-<script src="assets/app.js"></script>
+<script src="<?= asset_url('assets/app.js') ?>"></script>
 </body>
 </html><?php
 }

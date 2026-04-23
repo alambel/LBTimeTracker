@@ -151,6 +151,23 @@ function fetch_github_commit(): ?array {
     return $result;
 }
 
+function asset_version(): string {
+    $info = get_deployment_info();
+    if ($info !== null && !empty($info['hash'])) {
+        return substr($info['hash'], 0, 10);
+    }
+    // Fallback: filemtime of this file
+    $f = BASE_DIR . '/assets/style.css';
+    if (is_readable($f)) {
+        return (string)@filemtime($f);
+    }
+    return (string)time();
+}
+
+function asset_url(string $path): string {
+    return e($path) . '?v=' . e(asset_version());
+}
+
 function format_deployment_footer(): string {
     $info = get_deployment_info();
     if ($info === null || $info['hash'] === '') {
