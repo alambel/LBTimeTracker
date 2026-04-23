@@ -105,6 +105,37 @@ function set_entry(PDO $db, string $date, string $period, ?int $projectId, ?stri
     }
 }
 
+function project_entry_counts(PDO $db): array {
+    $sql = 'SELECT project_id, COUNT(*) AS c FROM entries GROUP BY project_id';
+    $out = [];
+    foreach ($db->query($sql)->fetchAll() as $row) {
+        $out[(int)$row['project_id']] = (int)$row['c'];
+    }
+    return $out;
+}
+
+function batch_save_entries(PDO $db, array $targets, ?int $projectId, ?string $note = null): void {
+    $noteValue = ($note !== null && $note !== '') ? $note : null;
+    $db->beginTransaction();
+    try {
+        $del = $db->prepare('DELETE FROM entries WHERE date = ? AND period = ?');
+        $ins = $db->prepare('INSERT INTO entries (date, period, project_id, note) VALUES (?, ?, ?, ?)');
+        foreach ($targets as $t) {
+            $date = $t['date'] ?? '';
+            $period = $t['period'] ?? '';
+            if (!valid_date($date) || !valid_period($period)) continue;
+            $del->execute([$date, $period]);
+            if ($projectId !== null) {
+                $ins->execute([$date, $period, $projectId, $noteValue]);
+            }
+        }
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollBack();
+        throw $e;
+    }
+}
+
 function summary_between(PDO $db, string $from, string $to): array {
     $stmt = $db->prepare("
         SELECT p.id, p.name, p.color,

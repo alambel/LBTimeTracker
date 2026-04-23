@@ -3,49 +3,69 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#1f2937">
+    <meta name="theme-color" content="#fafaf7">
     <title><?= e($title ?? 'LB Time Tracker') ?></title>
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="<?= e($page ?? '') ?>">
-    <nav class="nav">
-        <div class="nav-brand">
-            <?= render_app_icon(22) ?>
-            <span>LB Time Tracker</span>
+<?php
+    $currentUserName = current_user() ?? '';
+    $avatarLetter = strtoupper(mb_substr($currentUserName, 0, 1, 'UTF-8'));
+    $navItems = [
+        ['calendar', 'Calendrier', '01'],
+        ['summary', 'Résumé', '02'],
+        ['projects', 'Projets', '03'],
+    ];
+?>
+<div class="lbtt-app">
+    <aside class="lbtt-rail">
+        <div>
+            <div class="lbtt-brand">
+                <span class="lbtt-brand-mark" aria-hidden="true"></span>
+                <span class="lbtt-brand-code">LB — TT</span>
+            </div>
+            <div class="lbtt-rail-wordmark">carnet<br>d'heures.</div>
         </div>
-        <div class="nav-links">
-            <a href="index.php?action=calendar" class="<?= ($page ?? '') === 'calendar' ? 'active' : '' ?>">Calendrier</a>
-            <a href="index.php?action=summary" class="<?= ($page ?? '') === 'summary' ? 'active' : '' ?>">Résumé</a>
-            <a href="index.php?action=projects" class="<?= ($page ?? '') === 'projects' ? 'active' : '' ?>">Projets</a>
+        <nav class="lbtt-rail-nav" aria-label="Navigation principale">
+            <?php foreach ($navItems as [$key, $label, $num]): ?>
+                <a href="index.php?action=<?= e($key) ?>" class="lbtt-rail-nav-item<?= ($page ?? '') === $key ? ' active' : '' ?>">
+                    <span class="n"><?= e($num) ?></span>
+                    <span><?= e($label) ?></span>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+        <div class="lbtt-rail-session">
+            <div class="lbtt-label" style="margin-bottom: 6px;">Session</div>
+            <div class="lbtt-session-row">
+                <div class="lbtt-avatar"><?= e($avatarLetter !== '' ? $avatarLetter : 'A') ?></div>
+                <div>
+                    <div class="lbtt-session-name"><?= e($currentUserName) ?></div>
+                    <a href="index.php?action=logout" class="lbtt-session-logout">Déconnexion →</a>
+                </div>
+            </div>
         </div>
-        <div class="nav-user">
-            <span><?= e(current_user() ?? '') ?></span>
-            <a href="index.php?action=logout">Déconnexion</a>
-        </div>
-    </nav>
-    <main class="main">
+    </aside>
+    <main class="lbtt-main">
         <?= $content ?>
     </main>
-    <?= format_deployment_footer() ?>
-    <nav class="bottom-nav" aria-label="Navigation principale">
-        <a href="index.php?action=calendar" class="bnav-item <?= ($page ?? '') === 'calendar' ? 'active' : '' ?>">
-            <?= render_nav_icon('calendar') ?>
-            <span>Calendrier</span>
+</div>
+<?= format_deployment_footer() ?>
+<nav class="lbtt-tabbar" aria-label="Navigation">
+    <?php foreach ($navItems as [$key, $label, $num]): ?>
+        <a href="index.php?action=<?= e($key) ?>" class="lbtt-tab<?= ($page ?? '') === $key ? ' active' : '' ?>">
+            <span class="ix"><?= e($num) ?></span>
+            <span class="lbl"><?= e(strtolower($label)) ?>.</span>
         </a>
-        <a href="index.php?action=summary" class="bnav-item <?= ($page ?? '') === 'summary' ? 'active' : '' ?>">
-            <?= render_nav_icon('summary') ?>
-            <span>Résumé</span>
-        </a>
-        <a href="index.php?action=projects" class="bnav-item <?= ($page ?? '') === 'projects' ? 'active' : '' ?>">
-            <?= render_nav_icon('projects') ?>
-            <span>Projets</span>
-        </a>
-        <a href="index.php?action=logout" class="bnav-item">
-            <?= render_nav_icon('logout') ?>
-            <span>Quitter</span>
-        </a>
-    </nav>
-    <script src="assets/app.js"></script>
+    <?php endforeach; ?>
+    <a href="index.php?action=logout" class="lbtt-tab">
+        <span class="ix">→</span>
+        <span class="lbl">quitter.</span>
+    </a>
+</nav>
+<script src="assets/app.js"></script>
 </body>
 </html>

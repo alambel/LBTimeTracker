@@ -1,94 +1,206 @@
-<div class="page-header">
-    <div class="month-nav">
-        <a href="index.php?action=calendar&month=<?= e($prevMonth) ?>" class="btn-icon" title="Mois précédent">‹</a>
-        <h1><?= e(month_title($month)) ?></h1>
-        <a href="index.php?action=calendar&month=<?= e($nextMonth) ?>" class="btn-icon" title="Mois suivant">›</a>
-        <a href="index.php?action=calendar" class="btn-link">Aujourd'hui</a>
-    </div>
-</div>
-
-<?php if (empty($projects)): ?>
-    <div class="empty-state">
-        <p>Aucun projet disponible. <a href="index.php?action=projects">Créer un projet</a> pour commencer à saisir du temps.</p>
-    </div>
-<?php else: ?>
-
 <?php
-    $projectsJson = json_encode(
-        array_map(fn($p) => ['id' => (int)$p['id'], 'name' => $p['name'], 'color' => $p['color']], $projects),
-        JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
-    );
+$projectsJson = json_encode(
+    array_map(fn($p) => ['id' => (int)$p['id'], 'name' => $p['name'], 'color' => $p['color']], $projects),
+    JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+);
+$periodLabels = period_labels();
+$periodHours = period_hours();
+$periodCodes = period_codes();
 ?>
-<div class="calendar"
-     data-month="<?= e($month) ?>"
-     data-projects='<?= e($projectsJson) ?>'>
-    <div class="cal-header">
-        <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+<div class="lbtt-no-select" data-calendar
+     data-projects='<?= e($projectsJson) ?>'
+     data-month="<?= e($month) ?>">
+
+    <div class="lbtt-page-head">
+        <div>
+            <div class="lbtt-label">Mois en cours · <?= (int)$year ?></div>
+            <h1 class="lbtt-page-title"><?= e($monthLabel) ?>.</h1>
+        </div>
+        <div class="lbtt-cal-head-right">
+            <div class="lbtt-cal-head-stat">
+                <div class="lbtt-label">Saisi</div>
+                <div class="val"><?= number_format($totalHalfDays / 2, 1, ',', ' ') ?><span class="unit"> j</span></div>
+            </div>
+            <div class="lbtt-rule-v" style="height: 40px;"></div>
+            <div>
+                <div class="lbtt-label">Dominant</div>
+                <div class="lbtt-cal-head-dom">
+                    <span class="sw" style="background: <?= e($topProject['color'] ?? 'var(--lbtt-muted)') ?>;"></span>
+                    <span class="nm"><?= e($topProject['name'] ?? '—') ?></span>
+                </div>
+            </div>
+            <div class="lbtt-rule-v" style="height: 40px;"></div>
+            <div class="lbtt-cal-head-pager">
+                <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="index.php?action=calendar&month=<?= e($prevMonth) ?>">‹</a>
+                <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="index.php?action=calendar">AUJ.</a>
+                <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="index.php?action=calendar&month=<?= e($nextMonth) ?>">›</a>
+            </div>
+        </div>
     </div>
-    <div class="cal-grid">
-        <?php
-        [$firstDay, $lastDay] = month_bounds($month);
-        $first = new DateTime($firstDay);
-        $last = new DateTime($lastDay);
-        $startOffset = ((int)$first->format('N')) - 1;
-        for ($i = 0; $i < $startOffset; $i++) {
-            echo '<div class="cal-cell cal-empty"></div>';
-        }
-        $cursor = clone $first;
+
+    <?php if (empty($projects)): ?>
+        <div class="lbtt-cal-tip">
+            <span class="lbtt-chip">Aucun projet</span>
+            <span class="lbtt-cal-tip-text">
+                <a href="index.php?action=projects" style="text-decoration: underline;">Créer un projet</a> pour commencer à saisir.
+            </span>
+        </div>
+    <?php else: ?>
+        <div class="lbtt-cal-tip">
+            <span class="lbtt-chip">Astuce</span>
+            <span class="lbtt-cal-tip-text">
+                Cliquez un créneau pour l'éditer. Maintenez et glissez pour remplir plusieurs créneaux à la fois.
+            </span>
+        </div>
+    <?php endif; ?>
+
+    <!-- ========== Desktop calendar ========== -->
+    <div class="lbtt-cal-wrap-desktop">
+        <div class="lbtt-cal">
+            <div class="lbtt-cal-weekdays">
+                <?php foreach (weekday_names_fr_long() as $wd): ?>
+                    <div><?= e($wd) ?></div>
+                <?php endforeach; ?>
+            </div>
+            <div class="lbtt-cal-grid">
+                <?php
+                $totalCells = count($cells);
+                foreach ($cells as $i => $cell):
+                    $isLastRow = $i >= $totalCells - 7;
+                    $lastRowCls = $isLastRow ? ' last-row' : '';
+                    if ($cell === null):
+                ?>
+                    <div class="lbtt-cal-cell empty<?= $lastRowCls ?>"></div>
+                <?php else:
+                    $cls = 'lbtt-cal-cell' . $lastRowCls;
+                    if ($cell['weekend']) $cls .= ' weekend';
+                    if ($cell['today']) $cls .= ' today';
+                ?>
+                    <div class="<?= $cls ?>">
+                        <div class="lbtt-cal-cell-head">
+                            <span class="lbtt-cal-day-num"><?= $cell['day'] ?></span>
+                            <?php if ($cell['today']): ?>
+                                <span class="lbtt-chip lbtt-chip-accent" style="font-size: 7.5px; padding: 2px 5px;">Auj.</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="lbtt-cal-slots">
+                            <?php foreach ($periodCodes as $period):
+                                $entry = $byKey[$cell['date'] . '_' . $period] ?? null;
+                                $filled = $entry !== null;
+                                $bg = $filled ? ' style="background: ' . e($entry['project_color']) . ';"' : '';
+                                $nm = $filled ? e($entry['project_name']) : '—';
+                                $note = $filled ? (string)($entry['note'] ?? '') : '';
+                            ?>
+                                <button type="button"
+                                        class="lbtt-cal-slot<?= $filled ? ' filled' : '' ?>"
+                                        data-slot data-ymd="<?= e($cell['date']) ?>" data-sk="<?= e($period) ?>"
+                                        data-project-id="<?= $filled ? (int)$entry['project_id'] : '0' ?>"
+                                        data-note="<?= e($note) ?>"
+                                        <?= $bg ?>>
+                                    <span class="sk"><?= e($period) ?></span>
+                                    <span class="nm"><?= $nm ?></span>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; endforeach; ?>
+            </div>
+        </div>
+
+        <?php if (!empty($projects)): ?>
+            <div class="lbtt-cal-legend">
+                <?php foreach ($projects as $p): ?>
+                    <span class="lbtt-tag">
+                        <span class="lbtt-tag-dot" style="background: <?= e($p['color']) ?>;"></span>
+                        <?= e($p['name']) ?>
+                    </span>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- ========== Mobile calendar ========== -->
+    <?php
         $today = date('Y-m-d');
-        $periods = period_codes();
-        $weekdayLabels = ['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-        while ($cursor <= $last) {
-            $date = $cursor->format('Y-m-d');
-            $isToday = $date === $today;
-            $isWeekend = (int)$cursor->format('N') >= 6;
-            $classes = 'cal-cell' . ($isToday ? ' today' : '') . ($isWeekend ? ' weekend' : '');
-            echo '<div class="' . $classes . '">';
-            echo '<div class="cal-date">';
-            echo '<span class="cal-weekday">' . $weekdayLabels[(int)$cursor->format('N')] . '</span>';
-            echo '<span class="cal-daynum">' . $cursor->format('j') . '</span>';
-            echo '</div>';
-            foreach ($periods as $period) {
-                $entry = $byKey[$date . '_' . $period] ?? null;
-                $style = $entry ? ' style="background:' . e($entry['project_color']) . '"' : '';
-                $text = $entry ? e($entry['project_name']) : '—';
-                $note = $entry ? (string)($entry['note'] ?? '') : '';
-                $title = $entry ? e($entry['project_name']) . ($note !== '' ? ' — ' . e($note) : '') : '';
-                echo '<button type="button" class="cal-slot' . ($entry ? ' filled' : '') . '"' . $style .
-                    ' data-date="' . e($date) . '"' .
-                    ' data-period="' . $period . '"' .
-                    ' data-project-id="' . (int)($entry['project_id'] ?? 0) . '"' .
-                    ' data-note="' . e($note) . '"' .
-                    ' title="' . $title . '">' .
-                    '<span class="slot-label">' . $period . '</span>' .
-                    '<span class="slot-project">' . $text . '</span>' .
-                    '</button>';
-            }
-            echo '</div>';
-            $cursor->modify('+1 day');
+        $todayEntries = [];
+        foreach ($periodCodes as $p) {
+            $todayEntries[$p] = $byKey[$today . '_' . $p] ?? null;
         }
-        ?>
+        $todayFilled = count(array_filter($todayEntries));
+        $todayDay = (int)date('j');
+    ?>
+    <div class="lbtt-mcal-wrap">
+        <div class="lbtt-mcal-today">
+            <div class="lbtt-mcal-today-tile"><?= $todayDay ?></div>
+            <div class="lbtt-mcal-today-body">
+                <div class="lbtt-label">Aujourd'hui · <?= $todayFilled ?>/4</div>
+                <div class="lbtt-mcal-today-strips">
+                    <?php foreach ($periodCodes as $p): $e = $todayEntries[$p]; ?>
+                        <div<?= $e ? ' style="background: ' . e($e['project_color']) . ';"' : '' ?>></div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+        <div class="lbtt-mcal-weekdays">
+            <?php foreach (weekday_letters_fr() as $wd): ?><div><?= e($wd) ?></div><?php endforeach; ?>
+        </div>
+        <div class="lbtt-mcal-grid">
+            <?php foreach ($cells as $cell):
+                if ($cell === null):
+            ?>
+                <div class="lbtt-mcal-cell empty"></div>
+            <?php else:
+                $cls = 'lbtt-mcal-cell';
+                if ($cell['today']) $cls .= ' today';
+            ?>
+                <div class="<?= $cls ?>">
+                    <div class="d"><?= $cell['day'] ?></div>
+                    <div class="lbtt-mcal-strips">
+                        <?php foreach ($periodCodes as $period):
+                            $entry = $byKey[$cell['date'] . '_' . $period] ?? null;
+                            $bg = $entry ? ' style="background: ' . e($entry['project_color']) . ';"' : '';
+                        ?>
+                            <button type="button" data-slot
+                                    data-ymd="<?= e($cell['date']) ?>"
+                                    data-sk="<?= e($period) ?>"
+                                    data-project-id="<?= $entry ? (int)$entry['project_id'] : '0' ?>"
+                                    data-note="<?= e($entry['note'] ?? '') ?>"
+                                    aria-label="<?= e($periodLabels[$period]) ?> <?= e($cell['date']) ?>"
+                                    <?= $bg ?>></button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; endforeach; ?>
+        </div>
+        <?php if (!empty($projects)): ?>
+            <div class="lbtt-cal-legend" style="padding: 12px 0;">
+                <?php foreach (array_slice($projects, 0, 8) as $p): ?>
+                    <span class="lbtt-tag" style="font-size: 10px;">
+                        <span class="lbtt-tag-dot" style="background: <?= e($p['color']) ?>;"></span>
+                        <?= e($p['name']) ?>
+                    </span>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
-<dialog id="slot-dialog" aria-labelledby="sd-heading">
-    <form method="dialog" id="slot-form">
-        <div class="sheet-handle" aria-hidden="true"></div>
-        <h3 id="sd-heading">
-            <strong id="sd-date"></strong>
-            <span id="sd-period" class="sd-period-badge"></span>
-        </h3>
-        <div class="project-grid" id="sd-project-grid" role="radiogroup" aria-label="Projet">
-            <!-- rempli par JS -->
+<!-- ========== Edit sheet (shared) ========== -->
+<div class="lbtt-sheet-overlay" id="lbtt-sheet-overlay" hidden>
+    <div class="lbtt-sheet" role="dialog" aria-labelledby="lbtt-sheet-title" aria-modal="true">
+        <div class="lbtt-sheet-handle" aria-hidden="true"></div>
+        <div class="lbtt-sheet-head">
+            <div>
+                <div class="lbtt-label" id="lbtt-sheet-eyebrow"></div>
+                <h3 id="lbtt-sheet-title"></h3>
+            </div>
+            <button type="button" class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" id="lbtt-sheet-close">Fermer</button>
         </div>
-        <label class="sd-note-label">Note <span class="hint-inline">(facultatif)</span>
-            <input type="text" id="sd-note" maxlength="200" placeholder="Ex: sprint X, bug Y…" autocomplete="off">
-        </label>
-        <div class="dialog-actions">
-            <button type="button" id="sd-cancel">Annuler</button>
-            <button type="button" id="sd-save" class="primary">Enregistrer</button>
+        <div class="lbtt-label" style="margin-bottom: 6px;">Projet</div>
+        <div class="lbtt-sheet-projects" id="lbtt-sheet-projects"></div>
+        <div class="lbtt-sheet-note" id="lbtt-sheet-note-wrap">
+            <div class="lbtt-label" style="margin-bottom: 5px;">Note (facultatif)</div>
+            <input class="lbtt-input" id="lbtt-sheet-note" type="text" maxlength="200" placeholder="Ex: sprint X, bug Y…">
         </div>
-    </form>
-</dialog>
-
-<?php endif; ?>
+    </div>
+</div>

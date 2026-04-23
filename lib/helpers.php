@@ -50,6 +50,75 @@ function valid_period(string $p): bool {
     return in_array($p, period_codes(), true);
 }
 
+function period_hours(): array {
+    return [
+        'AM' => '08–12',
+        'PM' => '13–17',
+        'EV' => '17–21',
+        'NT' => '22–02',
+    ];
+}
+
+function month_name_fr(int $m): string {
+    $names = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+        'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    return $names[$m] ?? '';
+}
+
+function weekday_letters_fr(): array {
+    return ['L', 'M', 'M', 'J', 'V', 'S', 'D']; // lundi-first
+}
+
+function weekday_names_fr_long(): array {
+    return ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+}
+
+/**
+ * Build a month grid starting on Monday.
+ * Returns an array of cells — each is null (empty) or array:
+ *   ['day'=>int, 'date'=>'YYYY-MM-DD', 'dow'=>1..7, 'weekend'=>bool, 'today'=>bool]
+ */
+function build_month_cells(string $month): array {
+    [$firstDay, $lastDay] = month_bounds($month);
+    $first = new DateTime($firstDay);
+    $last = new DateTime($lastDay);
+    $offset = ((int)$first->format('N')) - 1; // Mon=0..Sun=6
+    $today = date('Y-m-d');
+    $cells = [];
+    for ($i = 0; $i < $offset; $i++) $cells[] = null;
+    $cursor = clone $first;
+    while ($cursor <= $last) {
+        $dow = (int)$cursor->format('N');
+        $cells[] = [
+            'day' => (int)$cursor->format('j'),
+            'date' => $cursor->format('Y-m-d'),
+            'dow' => $dow,
+            'weekend' => $dow >= 6,
+            'today' => $cursor->format('Y-m-d') === $today,
+        ];
+        $cursor->modify('+1 day');
+    }
+    while (count($cells) % 7 !== 0) $cells[] = null;
+    return $cells;
+}
+
+function days_in_month(string $month): int {
+    [$firstDay, $lastDay] = month_bounds($month);
+    return (int)(new DateTime($lastDay))->format('j');
+}
+
+/** List of dates (YYYY-MM-DD) between $from and $to inclusive. */
+function date_range(string $from, string $to): array {
+    $out = [];
+    $cursor = new DateTime($from);
+    $end = new DateTime($to);
+    while ($cursor <= $end) {
+        $out[] = $cursor->format('Y-m-d');
+        $cursor->modify('+1 day');
+    }
+    return $out;
+}
+
 function render_nav_icon(string $name): string {
     $paths = [
         'calendar' => '<rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/>',

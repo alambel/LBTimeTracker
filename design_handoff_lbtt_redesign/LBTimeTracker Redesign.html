@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LBTimeTracker — Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lbtt-styles.css">
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; min-height: 100vh; }
+  body { font-family: var(--sans); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="lbtt-data.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="mobile.jsx"></script>
+<script type="text/babel" src="web.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAKS = /*EDITMODE-BEGIN*/{
+  "accent": "#5a6f8a",
+  "theme": "dark",
+  "showNotes": true
+}/*EDITMODE-END*/;
+
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("lbtt-theme-dark", theme === "dark");
+}
+function applyAccent(c) {
+  document.documentElement.style.setProperty("--lbtt-accent", c);
+  document.documentElement.style.setProperty("--slot-am", c);
+}
+
+function TweaksPanel({ tw, setTw, visible }) {
+  if (!visible) return null;
+  const persist = (patch) => {
+    window.parent?.postMessage({ type: "__edit_mode_set_keys", edits: patch }, "*");
+  };
+  const swatches = ["#c45a2e", "#2d4a3e", "#5a6f8a", "#c9a24a", "#a14a3a", "#1a1a1a"];
+  return (
+    <div style={{
+      position: "fixed", right: 20, bottom: 20, width: 240, zIndex: 1000,
+      background: "#fafaf7", border: "1px solid #1a1a1a", padding: 16,
+      fontFamily: "var(--sans)", boxShadow: "0 18px 60px rgba(0,0,0,0.18)",
+    }}>
+      <div className="lbtt-serif" style={{ fontSize: 18, marginBottom: 10, textTransform: "lowercase" }}>Tweaks.</div>
+      <div className="lbtt-label" style={{ marginBottom: 6 }}>Couleur d'accent</div>
+      <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
+        {swatches.map(c => (
+          <button key={c} onClick={() => {
+            const n = { ...tw, accent: c };
+            setTw(n); applyAccent(c); persist({ accent: c });
+          }} style={{
+            width: 28, height: 28, background: c, cursor: "pointer",
+            border: tw.accent === c ? "2px solid #1a1a1a" : "1px solid #dcd8cb",
+          }} />
+        ))}
+      </div>
+      <div className="lbtt-label" style={{ marginBottom: 6 }}>Thème</div>
+      <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
+        {["light","dark"].map(t => (
+          <button key={t} onClick={() => {
+            const n = { ...tw, theme: t };
+            setTw(n); applyTheme(t); persist({ theme: t });
+          }} style={{
+            flex: 1, padding: "7px 10px", border: "1px solid #1a1a1a",
+            background: tw.theme === t ? "#1a1a1a" : "transparent",
+            color: tw.theme === t ? "#fafaf7" : "#1a1a1a",
+            cursor: "pointer", fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
+          }}>{t === "light" ? "Clair" : "Sombre"}</button>
+        ))}
+      </div>
+      <div className="lbtt-mono" style={{ fontSize: 9, color: "#8a8578", letterSpacing: "0.1em" }}>
+        ENREGISTRÉ AUTOMATIQUEMENT
+      </div>
+    </div>
+  );
+}
+
+// ── Designer notes (postits)
+function Note({ children, w = 260 }) {
+  return (
+    <div style={{
+      width: w, padding: "14px 16px", background: "#fef4a8",
+      color: "#5a4a2a", fontFamily: "var(--sans)", fontSize: 13,
+      lineHeight: 1.45, boxShadow: "0 1px 0 rgba(0,0,0,0.06)",
+    }}>{children}</div>
+  );
+}
+function CoverNote({ children, w = 340 }) {
+  return (
+    <div style={{
+      width: w, padding: "22px 24px", background: "#fafaf7",
+      border: "1px solid #1a1a1a", color: "#1a1a1a",
+      fontFamily: "var(--sans)", fontSize: 13.5, lineHeight: 1.55,
+    }}>{children}</div>
+  );
+}
+
+// ── Mobile frame wrapper (iOS device)
+function Phone({ children, title }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+      <IOSDevice width={360} height={740} title={title}>
+        {children}
+      </IOSDevice>
+    </div>
+  );
+}
+
+// ── Web browser mock wrapper (simple chrome)
+function Browser({ width = 1100, height = 720, url = "https://lbtt.local/app", children }) {
+  return (
+    <div style={{
+      width, height, background: "#fafaf7", border: "1px solid #1a1a1a",
+      display: "flex", flexDirection: "column", overflow: "hidden",
+    }}>
+      <div style={{
+        height: 34, background: "#e9e6dc", borderBottom: "1px solid #1a1a1a",
+        display: "flex", alignItems: "center", gap: 8, padding: "0 12px",
+      }}>
+        <div style={{ display: "flex", gap: 5 }}>
+          <div style={{ width: 10, height: 10, background: "#e25c4b", borderRadius: "50%" }} />
+          <div style={{ width: 10, height: 10, background: "#e6b84a", borderRadius: "50%" }} />
+          <div style={{ width: 10, height: 10, background: "#4cb053", borderRadius: "50%" }} />
+        </div>
+        <div style={{
+          marginLeft: 14, padding: "3px 10px", background: "#fafaf7",
+          border: "1px solid #dcd8cb", fontFamily: "var(--mono)", fontSize: 11,
+          color: "#8a8578", letterSpacing: "0.03em",
+        }}>⌘ {url}</div>
+      </div>
+      <div style={{ flex: 1, overflow: "hidden" }}>{children}</div>
+    </div>
+  );
+}
+
+function App() {
+  const [tw, setTw] = useState(TWEAKS);
+  const [tweakVisible, setTweakVisible] = useState(false);
+
+  useEffect(() => {
+    applyTheme(tw.theme);
+    applyAccent(tw.accent);
+    const onMsg = (e) => {
+      if (e.data?.type === "__activate_edit_mode") setTweakVisible(true);
+      if (e.data?.type === "__deactivate_edit_mode") setTweakVisible(false);
+    };
+    window.addEventListener("message", onMsg);
+    window.parent?.postMessage({ type: "__edit_mode_available" }, "*");
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  return (
+    <>
+      <DesignCanvas>
+
+        <DCSection id="cover" title="LBTimeTracker — Redesign" subtitle="Editorial ledger · warm paper · slot-based journal">
+          <DCArtboard id="readme" label="01 · Brief" width={420} height={560}>
+            <div style={{ padding: "30px 32px", background: "#fafaf7", height: "100%", boxSizing: "border-box", fontFamily: "var(--sans)", color: "#1a1a1a" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <div style={{ width: 14, height: 14, background: "#c45a2e" }} />
+                <div className="lbtt-mono" style={{ fontSize: 9.5, letterSpacing: "0.2em", textTransform: "uppercase" }}>LB — TIME TRACKER · V1.0</div>
+              </div>
+              <div className="lbtt-serif" style={{ fontSize: 44, lineHeight: 0.95, textTransform: "lowercase", marginBottom: 18 }}>
+                carnet<br/><span style={{ color: "#c45a2e" }}>d'heures.</span>
+              </div>
+              <p style={{ fontSize: 13.5, lineHeight: 1.55, color: "#333" }}>
+                Redesign de LBTimeTracker : une app PHP / MariaDB mono-utilisateur pour
+                suivre son temps par <b>créneau</b> — matin, après-midi, soir, nuit.
+                Quatre cases par jour, une couleur par projet.
+              </p>
+              <hr className="lbtt-rule" style={{ margin: "18px 0" }} />
+              <div className="lbtt-label" style={{ marginBottom: 6 }}>Parti pris</div>
+              <ul style={{ fontSize: 12.5, lineHeight: 1.6, paddingLeft: 16, margin: 0, color: "#1a1a1a" }}>
+                <li>Langue originale conservée — FR</li>
+                <li>Pas de cards arrondies, pas de gradients</li>
+                <li>Typographie : Fraunces (serif) + Inter + JetBrains Mono</li>
+                <li>Papier chaud, encre noire, orange brûlé comme accent</li>
+                <li>La <b>grille mensuelle</b> remplace les cartes journalières</li>
+                <li>Drag-to-fill : glisser pour remplir plusieurs créneaux d'un coup</li>
+              </ul>
+              <hr className="lbtt-rule" style={{ margin: "18px 0" }} />
+              <div className="lbtt-label" style={{ marginBottom: 6 }}>Livrables</div>
+              <div className="lbtt-mono" style={{ fontSize: 11, color: "#333", lineHeight: 1.7 }}>
+                03 ÉCRANS MOBILE · 03 ÉCRANS WEB · 01 CONSTELLATION ANNUELLE · 01 SETUP
+              </div>
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="system" label="02 · Système" width={420} height={560}>
+            <div style={{ padding: "26px 28px", background: "#fafaf7", height: "100%", boxSizing: "border-box", fontFamily: "var(--sans)", color: "#1a1a1a" }}>
+              <div className="lbtt-label" style={{ marginBottom: 6 }}>Palette projets</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+                {["#c45a2e","#2d4a3e","#c9a24a","#5a6f8a","#8a6a4a","#a8a094","#a14a3a"].map(c => (
+                  <div key={c} style={{ flex: 1, height: 42, background: c }} />
+                ))}
+              </div>
+              <div className="lbtt-label" style={{ marginBottom: 6 }}>Papier + encre</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+                {["#fafaf7","#f2f0e8","#e9e6dc","#dcd8cb","#8a8578","#333","#1a1a1a"].map(c => (
+                  <div key={c} style={{ flex: 1, height: 42, background: c, border: c === "#fafaf7" ? "1px solid #dcd8cb" : "none" }} />
+                ))}
+              </div>
+              <div className="lbtt-label" style={{ marginBottom: 6 }}>Typographie</div>
+              <div className="lbtt-serif" style={{ fontSize: 36, lineHeight: 0.95, textTransform: "lowercase", marginBottom: 4 }}>avril.</div>
+              <div style={{ fontSize: 14, marginBottom: 4 }}>Inter — libellés, corps du texte</div>
+              <div className="lbtt-mono" style={{ fontSize: 11, letterSpacing: "0.12em", color: "#8a8578", textTransform: "uppercase", marginBottom: 18 }}>JETBRAINS — CHIFFRES / MÉTA</div>
+              <div className="lbtt-label" style={{ marginBottom: 6 }}>Créneaux</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+                {LBTT_SLOTS.map((s, i) => (
+                  <div key={s.key} style={{ border: "1px solid #dcd8cb", padding: "8px 10px" }}>
+                    <div className="lbtt-mono" style={{ fontSize: 10, color: "#8a8578", letterSpacing: "0.1em" }}>{s.key}</div>
+                    <div style={{ fontSize: 13, marginTop: 2 }}>{s.label}</div>
+                    <div className="lbtt-mono" style={{ fontSize: 10, color: "#8a8578" }}>{s.hours}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </DCArtboard>
+
+          <DCArtboard id="cover-note" label="· Notes" width={340} height={560}>
+            <div style={{ padding: 0, background: "transparent", height: "100%", display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start", justifyContent: "flex-start", paddingTop: 20, paddingLeft: 10 }}>
+              <Note w={300}>
+                <b>Point d'attention :</b> l'app d'origine affichait les 31 jours en cartes verticales. Je suis passé à une grille mensuelle — plus compacte, plus proche d'un <i>carnet comptable</i>, et plus facile à scanner.
+              </Note>
+              <Note w={300}>
+                <b>Drag-to-fill</b> : cliquer-glisser sur plusieurs cases peint le même projet sur tous les créneaux traversés. Gros gain sur les semaines monoprojet.
+              </Note>
+              <Note w={300}>
+                <b>Accent couleur tweakable</b> → toggle "Tweaks" en haut pour changer l'orange, le thème (clair/sombre).
+              </Note>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="mobile" title="Mobile" subtitle="iOS — responsive par défaut, 4 créneaux visibles par jour">
+          <DCArtboard id="m-login" label="01 · Connexion" width={360} height={740}>
+            <Phone><MobileLogin /></Phone>
+          </DCArtboard>
+          <DCArtboard id="m-cal" label="02 · Calendrier mensuel" width={360} height={740}>
+            <Phone><MobileCalendar /></Phone>
+          </DCArtboard>
+          <DCArtboard id="m-sum" label="03 · Résumé" width={360} height={740}>
+            <Phone><MobileSummary /></Phone>
+          </DCArtboard>
+          <DCArtboard id="m-proj" label="04 · Projets" width={360} height={740}>
+            <Phone><MobileProjects /></Phone>
+          </DCArtboard>
+          <DCArtboard id="m-heat" label="05 · Année / Constellation" width={360} height={740}>
+            <Phone><MobileHeatmap /></Phone>
+          </DCArtboard>
+          <DCArtboard id="m-setup" label="06 · Installation" width={360} height={740}>
+            <Phone><MobileSetup /></Phone>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="web" title="Web / Desktop" subtitle="Mêmes vues, densité supérieure">
+          <DCArtboard id="w-login" label="01 · Connexion" width={1100} height={720}>
+            <Browser url="https://lbtt.local/login"><WebLogin /></Browser>
+          </DCArtboard>
+          <DCArtboard id="w-cal" label="02 · Calendrier mensuel" width={1100} height={720}>
+            <Browser url="https://lbtt.local/calendar"><WebApp initialPage="calendar" /></Browser>
+          </DCArtboard>
+          <DCArtboard id="w-sum" label="03 · Résumé" width={1100} height={720}>
+            <Browser url="https://lbtt.local/summary"><WebApp initialPage="summary" /></Browser>
+          </DCArtboard>
+          <DCArtboard id="w-proj" label="04 · Projets" width={1100} height={720}>
+            <Browser url="https://lbtt.local/projects"><WebApp initialPage="projects" /></Browser>
+          </DCArtboard>
+        </DCSection>
+
+      </DesignCanvas>
+      <TweaksPanel tw={tw} setTw={setTw} visible={tweakVisible} />
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

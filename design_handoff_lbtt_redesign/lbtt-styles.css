@@ -1,0 +1,156 @@
+/* LBTimeTracker — design tokens & base styles.
+   Warm paper + ink, burnt orange accent. Editorial ledger feel. */
+
+:root {
+  --lbtt-paper: #fafaf7;
+  --lbtt-paper-2: #f2f0e8;
+  --lbtt-paper-3: #e9e6dc;
+  --lbtt-ink: #1a1a1a;
+  --lbtt-ink-2: #333333;
+  --lbtt-muted: #8a8578;
+  --lbtt-faint: #c8c3b4;
+  --lbtt-rule: #dcd8cb;
+  --lbtt-accent: #c45a2e;
+  --lbtt-accent-ink: #7a3216;
+
+  /* slot colors */
+  --slot-am: #c45a2e;
+  --slot-pm: #2d4a3e;
+  --slot-ev: #5a6f8a;
+  --slot-nt: #1a1a1a;
+
+  --serif: "Fraunces", "Tiempos Headline", "Times New Roman", serif;
+  --sans: "Söhne", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", "Söhne Mono", "Berkeley Mono", ui-monospace, Menlo, monospace;
+}
+
+.lbtt-theme-dark {
+  --lbtt-paper: #141413;
+  --lbtt-paper-2: #1d1c1a;
+  --lbtt-paper-3: #2a2926;
+  --lbtt-ink: #f2efe6;
+  --lbtt-ink-2: #c8c4b8;
+  --lbtt-muted: #7a7568;
+  --lbtt-faint: #3c3a34;
+  --lbtt-rule: #2a2926;
+  --lbtt-accent: #e3733f;
+  --lbtt-accent-ink: #f5b894;
+}
+
+.lbtt-root, .lbtt-root * { box-sizing: border-box; }
+.lbtt-root {
+  font-family: var(--sans);
+  color: var(--lbtt-ink);
+  background: var(--lbtt-paper);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+}
+
+.lbtt-mono { font-family: var(--mono); font-feature-settings: "tnum", "zero"; }
+.lbtt-serif { font-family: var(--serif); font-weight: 400; letter-spacing: -0.02em; }
+
+/* Paper grain */
+.lbtt-grain {
+  position: relative;
+}
+.lbtt-grain::before {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(26,26,26,0.015) 0 1px, transparent 1px),
+    radial-gradient(circle at 80% 70%, rgba(26,26,26,0.012) 0 1px, transparent 1px),
+    radial-gradient(circle at 40% 85%, rgba(196,90,46,0.008) 0 1px, transparent 1px);
+  background-size: 3px 3px, 5px 5px, 7px 7px;
+}
+
+/* Rules / dividers */
+.lbtt-rule { border: 0; border-top: 1px solid var(--lbtt-rule); margin: 0; }
+.lbtt-rule-v { width: 1px; background: var(--lbtt-rule); }
+
+/* Chips */
+.lbtt-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border: 1px solid var(--lbtt-ink);
+  color: var(--lbtt-ink);
+  border-radius: 2px;
+}
+.lbtt-chip-accent {
+  background: var(--lbtt-accent); color: #fff; border-color: var(--lbtt-accent);
+}
+
+/* Ledger number */
+.lbtt-num {
+  font-family: var(--serif);
+  font-feature-settings: "tnum", "lnum";
+  font-weight: 300;
+  letter-spacing: -0.03em;
+}
+
+/* Slot base */
+.lbtt-slot {
+  position: relative;
+  transition: transform 120ms ease, background 120ms ease;
+  cursor: pointer;
+}
+.lbtt-slot:hover { filter: brightness(1.05); }
+.lbtt-slot.is-selected { outline: 2px solid var(--lbtt-ink); outline-offset: -2px; }
+
+.lbtt-hairline { box-shadow: inset 0 0 0 1px var(--lbtt-rule); }
+
+/* Scrollbar minimal */
+.lbtt-root ::-webkit-scrollbar { width: 8px; height: 8px; }
+.lbtt-root ::-webkit-scrollbar-thumb { background: var(--lbtt-faint); border-radius: 4px; }
+.lbtt-root ::-webkit-scrollbar-track { background: transparent; }
+
+/* Buttons */
+.lbtt-btn {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; padding: 10px 14px;
+  border: 1px solid var(--lbtt-ink); background: transparent;
+  color: var(--lbtt-ink); cursor: pointer;
+  transition: all 100ms;
+}
+.lbtt-btn:hover { background: var(--lbtt-ink); color: var(--lbtt-paper); }
+.lbtt-btn-primary { background: var(--lbtt-ink); color: var(--lbtt-paper); }
+.lbtt-btn-primary:hover { background: var(--lbtt-accent); border-color: var(--lbtt-accent); }
+.lbtt-btn-ghost { border-color: transparent; }
+.lbtt-btn-ghost:hover { background: var(--lbtt-paper-2); color: var(--lbtt-ink); }
+
+/* Inputs */
+.lbtt-input {
+  font-family: var(--sans); font-size: 14px;
+  padding: 10px 12px;
+  background: var(--lbtt-paper);
+  border: 1px solid var(--lbtt-rule);
+  color: var(--lbtt-ink);
+  border-radius: 0;
+  width: 100%;
+  transition: border-color 120ms;
+}
+.lbtt-input:focus { outline: none; border-color: var(--lbtt-ink); }
+
+/* Tag */
+.lbtt-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 3px 8px;
+  background: var(--lbtt-paper-2);
+  border: 1px solid var(--lbtt-rule);
+  border-radius: 99px;
+}
+.lbtt-tag-dot { width: 8px; height: 8px; border-radius: 99px; }
+
+/* Label uppercase */
+.lbtt-label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--lbtt-muted);
+}
+
+/* No text-selection for slot drags */
+.lbtt-no-select { user-select: none; -webkit-user-select: none; }
