@@ -3,6 +3,31 @@ function render_layout(string $title, string $page, string $content): void {
     include BASE_DIR . '/views/layout.php';
 }
 
+function render_logout_confirm(): void {
+    $title = 'Déconnexion — LBTimeTracker';
+    $page = 'logout';
+    ob_start();
+    ?>
+    <div class="lbtt-page-head">
+        <div>
+            <div class="lbtt-label">Session</div>
+            <h1 class="lbtt-page-title">déconnexion.</h1>
+        </div>
+    </div>
+    <div class="lbtt-cal-tip">
+        <span class="lbtt-chip">Confirmer</span>
+        <span class="lbtt-cal-tip-text">Clore la session en cours&nbsp;?</span>
+    </div>
+    <form method="post" action="index.php?action=logout" style="display: flex; gap: 10px; margin-top: 14px;">
+        <?= csrf_field() ?>
+        <button type="submit" class="lbtt-btn lbtt-btn-primary">Se déconnecter →</button>
+        <a href="index.php?action=calendar" class="lbtt-btn lbtt-btn-ghost">Annuler</a>
+    </form>
+    <?php
+    $content = ob_get_clean();
+    render_layout($title, $page, $content);
+}
+
 function render_calendar(PDO $db): void {
     $month = $_GET['month'] ?? date('Y-m');
     if (!preg_match('/^\d{4}-\d{2}$/', $month)) {

@@ -65,8 +65,15 @@ switch ($action) {
         handle_login($config);
         break;
     case 'logout':
-        handle_logout();
-        header('Location: index.php?action=login');
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            csrf_check_form_or_die();
+            handle_logout();
+            header('Location: index.php?action=login');
+            exit;
+        }
+        // GET → page de confirmation avec formulaire POST (évite CSRF via <img>)
+        require_auth();
+        render_logout_confirm();
         exit;
     case 'calendar':
         require_auth();

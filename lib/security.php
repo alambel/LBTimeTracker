@@ -143,6 +143,21 @@ function login_ratelimit_reset(): void {
     @unlink(_ratelimit_file());
 }
 
+/** GC best-effort des fichiers rate-limit anciens (>24h sans activité). */
+function login_ratelimit_gc(): void {
+    $dir = BASE_DIR . '/data/ratelimit';
+    if (!is_dir($dir)) return;
+    // 1 chance sur 50 par requête pour éviter d'impacter les perfs
+    if (random_int(1, 50) !== 1) return;
+    $cutoff = time() - 86400;
+    foreach (glob($dir . '/*.json') ?: [] as $f) {
+        $m = @filemtime($f);
+        if ($m !== false && $m < $cutoff) {
+            @unlink($f);
+        }
+    }
+}
+
 /* ==================== Validations ==================== */
 
 function valid_hex_color(string $s): bool {

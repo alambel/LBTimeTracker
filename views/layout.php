@@ -45,7 +45,10 @@
                 <div class="lbtt-avatar"><?= e($avatarLetter !== '' ? $avatarLetter : 'A') ?></div>
                 <div>
                     <div class="lbtt-session-name"><?= e($currentUserName) ?></div>
-                    <a href="index.php?action=logout" class="lbtt-session-logout">Déconnexion →</a>
+                    <form method="post" action="index.php?action=logout" class="lbtt-logout-form">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="lbtt-session-logout">Déconnexion →</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -62,10 +65,13 @@
             <span class="lbl"><?= e(strtolower($label)) ?>.</span>
         </a>
     <?php endforeach; ?>
-    <a href="index.php?action=logout" class="lbtt-tab">
-        <span class="ix">→</span>
-        <span class="lbl">quitter.</span>
-    </a>
+    <form method="post" action="index.php?action=logout" class="lbtt-tab-logout-form">
+        <?= csrf_field() ?>
+        <button type="submit" class="lbtt-tab">
+            <span class="ix">→</span>
+            <span class="lbl">quitter.</span>
+        </button>
+    </form>
 </nav>
 <script src="<?= asset_url('assets/app.js') ?>"></script>
 </body>

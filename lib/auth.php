@@ -19,6 +19,7 @@ function require_auth(): void {
 function handle_login(array $config): void {
     $error = null;
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        login_ratelimit_gc();
         // Rate limit d'abord (avant CSRF pour ne pas coûter de bcrypt sur flood)
         $blocked = login_ratelimit_check();
         if ($blocked !== null) {
@@ -34,6 +35,10 @@ function handle_login(array $config): void {
                 session_regenerate_id(true);
                 $_SESSION['user'] = $u;
                 login_ratelimit_reset();
+                // Upgrade bcrypt hash si le cost a évolué (défault PHP augmente avec les versions)
+                if (password_needs_rehash($hash, PASSWORD_BCRYPT)) {
+                    maybe_rehash_password($config, $p);
+                }
                 header('Location: index.php?action=calendar');
                 exit;
             }
@@ -45,6 +50,20 @@ function handle_login(array $config): void {
     }
     $title = 'Connexion — LBTimeTracker';
     include BASE_DIR . '/views/login.php';
+}
+
+/** Ré-hash le mot de passe avec le cost bcrypt courant et réécrit config.php. */
+function maybe_rehash_password(array $config, string $plainPassword): void {
+    try {
+        $newHash = password_hash($plainPassword, PASSWORD_BCRYPT);
+        $config['password_hash'] = $newHash;
+        $content = "<?php\n// LB Time Tracker — configuration\n// Mis à jour automatiquement (rehash bcrypt).\nreturn " . var_export($config, true) . ";\n";
+        if (@file_put_contents(CONFIG_PATH, $content) !== false) {
+            @chmod(CONFIG_PATH, 0600);
+        }
+    } catch (Throwable $e) {
+        error_log('LBTT rehash failed: ' . $e->getMessage());
+    }
 }
 
 function handle_logout(): void {
