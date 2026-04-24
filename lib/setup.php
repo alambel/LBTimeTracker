@@ -83,7 +83,7 @@ function handle_setup(): void {
                         $error = 'Création de l\'utilisateur admin impossible : ' . $e->getMessage();
                     }
                     if ($error === null) {
-                        header('Location: index.php?action=login&setup=done');
+                        header('Location: ' . url('login', ['setup' => 'done']));
                         exit;
                     }
                 }

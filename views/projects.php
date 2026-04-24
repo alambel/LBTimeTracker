@@ -12,14 +12,18 @@ $meId = current_user_id();
 <?php if ($error ?? null): ?><div class="lbtt-error"><?= e($error) ?></div><?php endif; ?>
 
 <?php if (!empty($flash)):
-    $isInvited = ($flash['kind'] ?? '') === 'invited';
+    $kind = $flash['kind'] ?? '';
+    $isOk = str_ends_with($kind, '_ok');
+    $isInvited = str_starts_with($kind, 'invited');
+    $chipCls = $isOk ? 'lbtt-chip-accent' : '';
+    $chipLbl = $isOk ? ($isInvited ? 'Invité' : 'Ajouté') : 'Mail non confirmé';
 ?>
-<div class="lbtt-cal-tip" style="margin-bottom: 10px;">
-    <span class="lbtt-chip lbtt-chip-accent"><?= $isInvited ? 'Invitation' : 'OK' ?></span>
+<div class="lbtt-cal-tip" style="margin-bottom: 10px; <?= $isOk ? '' : 'border-color: var(--lbtt-accent);' ?>">
+    <span class="lbtt-chip <?= $chipCls ?>"><?= e($chipLbl) ?></span>
     <span class="lbtt-cal-tip-text">
         <?= e($flash['msg'] ?? '') ?>
         <?php if (!empty($flash['url'])): ?>
-            <br><span style="font-family: var(--mono); font-size: 11px;">Lien :
+            <br><span style="font-family: var(--mono); font-size: 11px;">Lien&nbsp;:
                 <a href="<?= e($flash['url']) ?>" style="text-decoration: underline;"><?= e($flash['url']) ?></a>
             </span>
         <?php endif; ?>
@@ -65,7 +69,7 @@ $meId = current_user_id();
         $isAdmin = ($myRole === 'admin');
         $rowCls = 'lbtt-proj-card' . (!empty($p['archived']) ? ' archived' : '');
     ?>
-        <div class="<?= $rowCls ?>" data-project-card data-project-link="index.php?action=team&amp;id=<?= $pid ?>"
+        <div class="<?= $rowCls ?>" data-project-card data-project-link="<?= e(url('team', ['id' => $pid])) ?>"
              role="link" tabindex="0"
              aria-label="Voir l'équipe du projet <?= e($p['name']) ?>">
             <div class="lbtt-proj-card-head">
@@ -161,7 +165,7 @@ $meId = current_user_id();
                           if (!empty($pendingInvites)): ?>
                         <div class="lbtt-label" style="margin-top: 10px;">Invitations en attente</div>
                         <?php foreach ($pendingInvites as $inv):
-                            $inviteUrl = 'index.php?action=signup&invite=' . urlencode((string)$inv['token']);
+                            $inviteUrl = url('signup', ['invite' => (string)$inv['token']]);
                         ?>
                             <div class="lbtt-proj-invite-row">
                                 <span class="lbtt-proj-invite-email"><?= e($inv['email']) ?></span>

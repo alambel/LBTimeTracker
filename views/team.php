@@ -34,16 +34,16 @@ $renderAvatar = function(array $u) {
         </div>
         <div class="lbtt-rule-v" style="height: 40px;"></div>
         <div class="lbtt-cal-head-pager">
-            <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="index.php?action=team&id=<?= (int)$project['id'] ?>&month=<?= e($prevMonth) ?>">‹</a>
-            <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="index.php?action=team&id=<?= (int)$project['id'] ?>">AUJ.</a>
-            <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="index.php?action=team&id=<?= (int)$project['id'] ?>&month=<?= e($nextMonth) ?>">›</a>
+            <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="<?= e(url('team', ['id' => (int)$project['id'], 'month' => $prevMonth])) ?>">‹</a>
+            <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="<?= e(url('team', ['id' => (int)$project['id']])) ?>">AUJ.</a>
+            <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="<?= e(url('team', ['id' => (int)$project['id'], 'month' => $nextMonth])) ?>">›</a>
         </div>
     </div>
 </div>
 
 <div class="lbtt-cal-tip">
     <span class="lbtt-chip">Lecture seule</span>
-    <span class="lbtt-cal-tip-text">Vue d'équipe : chaque jour affiche les initiales des membres ayant saisi. Pour éditer ta journée, retourne au <a href="index.php?action=calendar" style="text-decoration: underline;">calendrier</a>.</span>
+    <span class="lbtt-cal-tip-text">Vue d'équipe : chaque jour affiche les initiales des membres ayant saisi. Pour éditer ta journée, retourne au <a href="<?= e(url('calendar')) ?>" style="text-decoration: underline;">calendrier</a>.</span>
 </div>
 
 <!-- Légende membres -->

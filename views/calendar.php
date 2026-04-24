@@ -38,9 +38,9 @@ $slotModeJson = json_encode([
             </div>
             <div class="lbtt-rule-v" style="height: 40px;"></div>
             <div class="lbtt-cal-head-pager">
-                <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="index.php?action=calendar&month=<?= e($prevMonth) ?>">‹</a>
-                <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="index.php?action=calendar">AUJ.</a>
-                <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="index.php?action=calendar&month=<?= e($nextMonth) ?>">›</a>
+                <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="<?= e(url('calendar', ['month' => $prevMonth])) ?>">‹</a>
+                <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="<?= e(url('calendar')) ?>">AUJ.</a>
+                <a class="lbtt-btn lbtt-btn-ghost lbtt-btn-icon" href="<?= e(url('calendar', ['month' => $nextMonth])) ?>">›</a>
             </div>
         </div>
     </div>
@@ -49,7 +49,7 @@ $slotModeJson = json_encode([
         <div class="lbtt-cal-tip">
             <span class="lbtt-chip">Aucun projet</span>
             <span class="lbtt-cal-tip-text">
-                <a href="index.php?action=projects" style="text-decoration: underline;">Créer un projet</a> pour commencer à saisir.
+                <a href="<?= e(url('projects')) ?>" style="text-decoration: underline;">Créer un projet</a> pour commencer à saisir.
             </span>
         </div>
     <?php else: ?>

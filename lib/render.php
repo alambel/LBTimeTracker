@@ -18,10 +18,10 @@ function render_logout_confirm(PDO $db): void {
         <span class="lbtt-chip">Confirmer</span>
         <span class="lbtt-cal-tip-text">Clore la session en cours&nbsp;?</span>
     </div>
-    <form method="post" action="index.php?action=logout" style="display: flex; gap: 10px; margin-top: 14px;">
+    <form method="post" action="<?= e(url('logout')) ?>" style="display: flex; gap: 10px; margin-top: 14px;">
         <?= csrf_field() ?>
         <button type="submit" class="lbtt-btn lbtt-btn-primary">Se déconnecter →</button>
-        <a href="index.php?action=calendar" class="lbtt-btn lbtt-btn-ghost">Annuler</a>
+        <a href="<?= e(url('calendar')) ?>" class="lbtt-btn lbtt-btn-ghost">Annuler</a>
     </form>
     <?php
     $content = ob_get_clean();
@@ -33,7 +33,7 @@ function render_logout_confirm(PDO $db): void {
  * ================================================================ */
 function render_calendar(PDO $db): void {
     $me = current_user_row($db);
-    if (!$me) { header('Location: index.php?action=login'); exit; }
+    if (!$me) { header('Location: ' . url('login')); exit; }
     $uid = (int)$me['id'];
     $slotMode = (string)$me['slot_mode'];
 
@@ -85,7 +85,7 @@ function render_calendar(PDO $db): void {
  * ================================================================ */
 function render_summary(PDO $db): void {
     $me = current_user_row($db);
-    if (!$me) { header('Location: index.php?action=login'); exit; }
+    if (!$me) { header('Location: ' . url('login')); exit; }
     $uid = (int)$me['id'];
     $slotMode = (string)$me['slot_mode'];
 
@@ -151,7 +151,7 @@ function _fr_short_date(string $date): string {
  * ================================================================ */
 function render_projects(PDO $db): void {
     $me = current_user_row($db);
-    if (!$me) { header('Location: index.php?action=login'); exit; }
+    if (!$me) { header('Location: ' . url('login')); exit; }
     $uid = (int)$me['id'];
 
     $error = null;
@@ -193,21 +193,27 @@ function render_projects(PDO $db): void {
                 if ($target && !empty($target['archived'])) { throw new RuntimeException('Compte archivé, impossible d\'inviter.'); }
                 invite_ratelimit_register($uid);
 
+                $inviterName = display_name($me);
                 if ($target) {
                     add_project_member($db, $id, (int)$target['id'], $role);
-                    $projectUrl = app_url() . '?action=team&id=' . $id;
-                    $sent = send_invitation_email($email, (string)$project['name'], $projectUrl, (string)$me['username'], true);
+                    $projectUrl = app_url('team', ['id' => $id]);
+                    $sent = send_invitation_email($email, (string)$project['name'], $projectUrl, $inviterName, true);
                     $_SESSION['_flash_projects'] = [
-                        'kind' => 'direct_add',
-                        'msg'  => 'Ajouté : ' . $email . ($sent ? ' — email envoyé.' : ' — email non envoyé (voir log).'),
+                        'kind' => $sent ? 'direct_add_ok' : 'direct_add_nomail',
+                        'msg'  => $sent
+                            ? $email . ' a été ajouté au projet — mail de notification envoyé.'
+                            : $email . ' a été ajouté au projet, mais le mail de notification n\'a pas pu être envoyé (cf. log PHP). Tu peux prévenir la personne directement.',
+                        'url'  => $projectUrl,
                     ];
                 } else {
                     $inv = create_or_refresh_invitation($db, $id, $email, $role, $uid);
-                    $inviteUrl = app_url() . '?action=signup&invite=' . urlencode((string)$inv['token']);
-                    $sent = send_invitation_email($email, (string)$project['name'], $inviteUrl, (string)$me['username'], false);
+                    $inviteUrl = app_url('signup', ['invite' => (string)$inv['token']]);
+                    $sent = send_invitation_email($email, (string)$project['name'], $inviteUrl, $inviterName, false);
                     $_SESSION['_flash_projects'] = [
-                        'kind' => 'invited',
-                        'msg'  => 'Invitation' . ($sent ? ' envoyée à ' : ' créée pour ') . $email . ' (expire dans 7 jours).',
+                        'kind' => $sent ? 'invited_ok' : 'invited_nomail',
+                        'msg'  => $sent
+                            ? 'Invitation envoyée à ' . $email . ' (expire dans 7 jours).'
+                            : 'Invitation créée pour ' . $email . ' — l\'envoi du mail n\'a PAS été confirmé par le serveur (cf. log PHP). Copie le lien ci-dessous et transmets-le directement.',
                         'url'  => $inviteUrl,
                     ];
                 }
@@ -238,7 +244,7 @@ function render_projects(PDO $db): void {
                 }
                 remove_project_member($db, $id, $targetId);
             }
-            header('Location: index.php?action=projects');
+            header('Location: ' . url('projects'));
             exit;
         } catch (Throwable $e) {
             $error = $e->getMessage();
@@ -277,7 +283,7 @@ function render_projects(PDO $db): void {
  * ================================================================ */
 function render_project_team(PDO $db): void {
     $me = current_user_row($db);
-    if (!$me) { header('Location: index.php?action=login'); exit; }
+    if (!$me) { header('Location: ' . url('login')); exit; }
     $uid = (int)$me['id'];
 
     $projectId = (int)($_GET['id'] ?? 0);
@@ -360,7 +366,7 @@ function render_users_admin(PDO $db): void {
                 $stmt = $db->prepare('UPDATE users SET is_app_admin = ? WHERE id = ?');
                 $stmt->execute([$nextFlag ? 1 : 0, $id]);
             }
-            header('Location: index.php?action=users');
+            header('Location: ' . url('users'));
             exit;
         } catch (Throwable $e) {
             $error = $e->getMessage();
@@ -381,7 +387,7 @@ function render_users_admin(PDO $db): void {
  * ================================================================ */
 function render_profile(PDO $db): void {
     $me = current_user_row($db);
-    if (!$me) { header('Location: index.php?action=login'); exit; }
+    if (!$me) { header('Location: ' . url('login')); exit; }
     $uid = (int)$me['id'];
 
     $error = null;
@@ -414,7 +420,7 @@ function render_profile(PDO $db): void {
                 if ($emailChanged) {
                     try {
                         $tok = set_email_verify_token($db, $uid);
-                        $verifyUrl = app_url() . '?action=verify_email&token=' . urlencode($tok);
+                        $verifyUrl = app_url('verify_email', ['token' => $tok]);
                         send_email_verification($email, $verifyUrl, display_name($me));
                     } catch (Throwable $e) {
                         error_log('LBTT resend verify failed: ' . $e->getMessage());
@@ -426,7 +432,7 @@ function render_profile(PDO $db): void {
             } elseif ($op === 'resend_verify') {
                 if (empty($me['email'])) throw new RuntimeException('Aucun email à vérifier.');
                 $tok = set_email_verify_token($db, $uid);
-                $verifyUrl = app_url() . '?action=verify_email&token=' . urlencode($tok);
+                $verifyUrl = app_url('verify_email', ['token' => $tok]);
                 $sent = send_email_verification((string)$me['email'], $verifyUrl, display_name($me));
                 $notice = $sent
                     ? 'Lien de vérification renvoyé à ' . $me['email'] . '.'

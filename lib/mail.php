@@ -29,16 +29,44 @@ function _mail_from_name(array $config): string {
 
 /**
  * Envoie un mail multipart (plaintext + html).
- * Renvoie true si mail() a accepté le message, false sinon.
+ *
+ * Deux transports possibles, dans l'ordre :
+ *   1. Resend API si `config.resend_api_key` est défini (recommandé en prod —
+ *      gère SPF/DKIM/delivrabilité côté Resend).
+ *   2. Fallback sur `mail()` de PHP (dépend du MTA local).
  */
 function send_mail(string $to, string $subject, string $bodyHtml, string $bodyText): bool {
-    if (!valid_email($to)) return false;
+    if (!valid_email($to)) {
+        error_log('LBTT mail: destinataire invalide « ' . $to . ' »');
+        return false;
+    }
 
-    global $config; // chargé dans index.php (settings app)
+    global $config;
     $cfg = is_array($config ?? null) ? $config : [];
     $fromAddr = _mail_from_address($cfg);
     $fromName = _mail_from_name($cfg);
-    $fromHeader = $fromName . ' <' . $fromAddr . '>';
+
+    // 1. Resend API (si clé configurée)
+    if (!empty($cfg['resend_api_key'])) {
+        return _send_via_resend(
+            (string)$cfg['resend_api_key'],
+            $to, $subject, $bodyHtml, $bodyText,
+            $fromAddr, $fromName
+        );
+    }
+
+    // 2. Fallback mail() local
+    if (!function_exists('mail')) {
+        error_log('LBTT mail: mail() indisponible et aucun resend_api_key configuré');
+        return false;
+    }
+
+    // From name RFC 2047 si non-ASCII (éviter caractères étranges chez le
+    // destinataire et rejet par certains MTA)
+    $fromDisplay = preg_match('/[^\x20-\x7E]/', $fromName)
+        ? '=?UTF-8?B?' . base64_encode($fromName) . '?='
+        : $fromName;
+    $fromHeader = $fromDisplay . ' <' . $fromAddr . '>';
 
     $boundary = 'lbtt_' . bin2hex(random_bytes(8));
     $eol = "\r\n";
@@ -46,6 +74,8 @@ function send_mail(string $to, string $subject, string $bodyHtml, string $bodyTe
     $headers = [
         'From: ' . $fromHeader,
         'Reply-To: ' . $fromAddr,
+        'Sender: ' . $fromAddr,
+        'Return-Path: <' . $fromAddr . '>',
         'MIME-Version: 1.0',
         'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
         'X-Mailer: LBTimeTracker',
@@ -61,15 +91,90 @@ function send_mail(string $to, string $subject, string $bodyHtml, string $bodyTe
           . $bodyHtml . $eol . $eol
           . '--' . $boundary . '--' . $eol;
 
-    // Subject RFC 2047 (UTF-8 encoded)
     $subjectHeader = '=?UTF-8?B?' . base64_encode($subject) . '?=';
 
+    // Envelope sender (-f) : requis pour SPF. $fromAddr validé par valid_email.
+    $extraParams = '-f' . $fromAddr;
+
+    // Capture les warnings de mail() pour les logger
+    $warning = null;
+    set_error_handler(function ($_errno, $errstr) use (&$warning) {
+        $warning = $errstr;
+        return true;
+    });
+    $ok = false;
     try {
-        return @mail($to, $subjectHeader, $body, implode($eol, $headers));
+        $ok = mail($to, $subjectHeader, $body, implode($eol, $headers), $extraParams);
     } catch (Throwable $e) {
-        error_log('LBTT send_mail failed: ' . $e->getMessage());
+        $warning = 'exception: ' . $e->getMessage();
+    } finally {
+        restore_error_handler();
+    }
+
+    if (!$ok) {
+        error_log(sprintf(
+            'LBTT mail KO: to=%s from=%s subject=%s warning=%s',
+            $to, $fromAddr, $subject, $warning ?? '(none)'
+        ));
+    } else {
+        error_log(sprintf('LBTT mail OK: to=%s from=%s', $to, $fromAddr));
+    }
+    return $ok;
+}
+
+/**
+ * Transport Resend (api.resend.com/emails).
+ * Requiert : config.resend_api_key + config.mail_from (un domaine vérifié côté Resend).
+ */
+function _send_via_resend(
+    string $apiKey,
+    string $to,
+    string $subject,
+    string $bodyHtml,
+    string $bodyText,
+    string $fromAddr,
+    string $fromName
+): bool {
+    if (!function_exists('curl_init')) {
+        error_log('LBTT resend: extension cURL absente, impossible d\'envoyer');
         return false;
     }
+    $payload = [
+        'from'    => $fromName !== '' ? $fromName . ' <' . $fromAddr . '>' : $fromAddr,
+        'to'      => [$to],
+        'subject' => $subject,
+        'html'    => $bodyHtml,
+        'text'    => $bodyText,
+    ];
+    $ch = curl_init('https://api.resend.com/emails');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $apiKey,
+            'Content-Type: application/json',
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_CONNECTTIMEOUT => 4,
+    ]);
+    $respBody = curl_exec($ch);
+    $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr = curl_error($ch);
+    curl_close($ch);
+
+    if ($respBody === false) {
+        error_log('LBTT resend KO: to=' . $to . ' curl=' . $curlErr);
+        return false;
+    }
+    if ($httpCode >= 200 && $httpCode < 300) {
+        error_log('LBTT resend OK: to=' . $to . ' from=' . $fromAddr);
+        return true;
+    }
+    // Resend retourne un JSON d'erreur
+    $short = substr((string)$respBody, 0, 240);
+    error_log(sprintf('LBTT resend KO: to=%s http=%d body=%s', $to, $httpCode, $short));
+    return false;
 }
 
 function send_email_verification(string $to, string $verifyUrl, string $displayName): bool {

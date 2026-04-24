@@ -17,7 +17,8 @@ php -S localhost:8000
 1er accès → page de setup qui demande **admin (user/pwd)** et **connexion MariaDB (host, port, dbname, user, password)**. La page teste la connexion, crée les tables, puis écrit `config.php`. Pour tester localement, installer MariaDB (`brew install mariadb && brew services start mariadb`), créer une base et un user dédié.
 
 ## Routing
-Tout passe par `index.php?action=X` — pas de rewrite rule nécessaire.
+URLs SEO-friendly via `.htaccess` Apache : `/calendar`, `/team/3`, `/signup/invite/TOKEN`, etc. Les anciennes URLs `index.php?action=X` continuent de fonctionner (fallback).
+Helper côté PHP : `url('calendar')` → `/calendar` · `url('team', ['id' => 3])` → `/team/3`.
 
 Actions :
 - `calendar` (défaut) — grille mensuelle perso, grille = slot_mode de l'user (hd2/hd4/hr10)
@@ -106,10 +107,11 @@ entries(
 - `config.php` en mode 0600, contient uniquement les credentials MariaDB + `timezone` + `session_name`. Plus de hash user (migré en DB).
 - **Clés optionnelles de durcissement** à ajouter dans `config.php` :
   ```php
-  'canonical_host' => 'https://time.njs.ch', // anti host-header injection (liens emails)
-  'trust_cloudflare' => true,                // n'activer que si vraiment derrière CF (sinon bypass rate-limit)
-  'mail_from' => 'noreply@time.njs.ch',      // sinon dérivé du canonical_host ou HTTP_HOST
-  'mail_from_name' => 'LBTimeTracker',
+  'canonical_host'   => 'https://time.njs.ch', // anti host-header injection (liens emails)
+  'trust_cloudflare' => true,                  // n'activer que si vraiment derrière CF (sinon bypass rate-limit)
+  'mail_from'        => 'noreply@time.njs.ch', // domaine vérifié côté Resend / MTA
+  'mail_from_name'   => 'LBTimeTracker',
+  'resend_api_key'   => 're_xxx',              // si défini → transport Resend API (fallback mail())
   ```
 - Session : `httponly=true`, `samesite=Lax`, nom `lbtt`. `$_SESSION['uid']` + `$_SESSION['user']`.
 - Login : lookup `users` par username, `password_verify` bcrypt. `session_regenerate_id(true)` après login.
@@ -159,8 +161,20 @@ location = /config.php { deny all; return 404; }
 location ^~ /lib/   { deny all; return 404; }
 location ^~ /views/ { deny all; return 404; }
 location ^~ /data/  { deny all; return 404; }
+location ^~ /scripts/ { deny all; return 404; }
+location ^~ /backups/ { deny all; return 404; }
 location ^~ /design_handoff_lbtt_redesign/ { deny all; return 404; }
 location ~ /\.(?!well-known) { deny all; return 404; }
+
+# URLs SEO-friendly → index.php?action=...
+# (Plesk : Paramètres Apache & nginx > Directives nginx supplémentaires)
+rewrite ^/signup/invite/([A-Za-z0-9_-]+)/?$    /index.php?action=signup&invite=$1       last;
+rewrite ^/verify-email/([A-Za-z0-9_-]+)/?$     /index.php?action=verify_email&token=$1  last;
+rewrite ^/team/(\d+)/?$                        /index.php?action=team&id=$1             last;
+rewrite ^/avatar/(\d+)\.jpg$                   /index.php?action=avatar&id=$1           last;
+rewrite ^/api/entries/?$                       /index.php?action=api_entries            last;
+rewrite ^/api/save-entry/?$                    /index.php?action=api_save_entry         last;
+rewrite ^/(login|signup|logout|calendar|summary|projects|profile|users)/?$  /index.php?action=$1  last;
 ```
 
 Vérifier après déploiement : `curl -I https://<domaine>/config.php` doit renvoyer 403/404, **pas** 200.

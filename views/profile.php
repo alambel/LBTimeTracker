@@ -175,7 +175,7 @@ $color = user_color_hsl((int)$me['id']);
         <p style="font-size: 12px; color: var(--lbtt-muted); margin: 0 0 10px;">
             Se déconnecter clôt la session actuelle. Tes données sont conservées.
         </p>
-        <form method="post" action="index.php?action=logout" data-confirm-logout>
+        <form method="post" action="<?= e(url('logout')) ?>" data-confirm-logout>
             <?= csrf_field() ?>
             <button type="submit" class="lbtt-btn lbtt-btn-danger">Se déconnecter →</button>
         </form>

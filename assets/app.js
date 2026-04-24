@@ -205,7 +205,7 @@
             const { ymd, slot } = current;
             const note = noteInput.value.trim() ? noteInput.value.trim() : null;
             try {
-                const r = await fetch('index.php?action=api_save_entry', {
+                const r = await fetch('/api/save-entry', {
                     method: 'POST',
                     headers: authHeaders(),
                     credentials: 'same-origin',

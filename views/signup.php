@@ -36,7 +36,7 @@
         </div>
     </div>
     <div class="lbtt-login-right">
-        <form method="post" action="index.php?action=signup" class="lbtt-login-form">
+        <form method="post" action="<?= e(url('signup')) ?>" class="lbtt-login-form">
             <?= csrf_field() ?>
             <?php if ($invitation ?? null): ?>
                 <input type="hidden" name="invite_token" value="<?= e($inviteToken) ?>">
@@ -93,7 +93,7 @@
             </div>
             <button type="submit" class="lbtt-btn lbtt-btn-primary lbtt-btn-block">CRÉER →</button>
             <div class="footnote" style="margin-top: 10px;">
-                <a href="index.php?action=login" style="color: var(--lbtt-muted); text-decoration: underline;">← J'ai déjà un compte</a>
+                <a href="<?= e(url('login')) ?>" style="color: var(--lbtt-muted); text-decoration: underline;">← J'ai déjà un compte</a>
             </div>
         </form>
     </div>

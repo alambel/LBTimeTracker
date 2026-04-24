@@ -36,7 +36,7 @@
         </div>
     </div>
     <div class="lbtt-login-right">
-        <form method="post" action="index.php?action=login" class="lbtt-login-form">
+        <form method="post" action="<?= e(url('login')) ?>" class="lbtt-login-form">
             <?= csrf_field() ?>
             <div class="lbtt-label eyebrow">Connexion</div>
             <h1>se connecter.</h1>
@@ -53,7 +53,7 @@
             </label>
             <button type="submit" class="lbtt-btn lbtt-btn-primary lbtt-btn-block">SE CONNECTER →</button>
             <div class="footnote" style="margin-top: 10px;">
-                <a href="index.php?action=signup" style="color: var(--lbtt-muted); text-decoration: underline;">Pas de compte ? Créer un compte →</a>
+                <a href="<?= e(url('signup')) ?>" style="color: var(--lbtt-muted); text-decoration: underline;">Pas de compte ? Créer un compte →</a>
             </div>
             <div class="footnote">BCRYPT · HTTPONLY · SAMESITE=LAX</div>
         </form>

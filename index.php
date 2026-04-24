@@ -52,6 +52,32 @@ try {
     exit;
 }
 
+// Fallback routing : si pas d'?action= (ex: serveur PHP built-in qui n'applique
+// pas .htaccess), on parse REQUEST_URI pour mapper les URLs SEO-friendly.
+if (!isset($_GET['action'])) {
+    $uri = parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/';
+    $scriptDir = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
+    if ($scriptDir !== '' && str_starts_with($uri, $scriptDir . '/')) {
+        $uri = substr($uri, strlen($scriptDir));
+    }
+    $uri = rtrim($uri, '/') ?: '/';
+    if (preg_match('#^/signup/invite/([A-Za-z0-9_\-]+)$#', $uri, $m)) {
+        $_GET['action'] = 'signup'; $_GET['invite'] = $m[1];
+    } elseif (preg_match('#^/verify-email/([A-Za-z0-9_\-]+)$#', $uri, $m)) {
+        $_GET['action'] = 'verify_email'; $_GET['token'] = $m[1];
+    } elseif (preg_match('#^/team/(\d+)$#', $uri, $m)) {
+        $_GET['action'] = 'team'; $_GET['id'] = $m[1];
+    } elseif (preg_match('#^/avatar/(\d+)\.jpg$#', $uri, $m)) {
+        $_GET['action'] = 'avatar'; $_GET['id'] = $m[1];
+    } elseif ($uri === '/api/entries') {
+        $_GET['action'] = 'api_entries';
+    } elseif ($uri === '/api/save-entry') {
+        $_GET['action'] = 'api_save_entry';
+    } elseif (preg_match('#^/(login|signup|logout|calendar|summary|projects|profile|users)$#', $uri, $m)) {
+        $_GET['action'] = $m[1];
+    }
+}
+
 $action = $_GET['action'] ?? 'calendar';
 
 if (str_starts_with($action, 'api_')) {
@@ -76,7 +102,7 @@ switch ($action) {
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             csrf_check_form_or_die();
             handle_logout();
-            header('Location: index.php?action=login');
+            header('Location: ' . url('login'));
             exit;
         }
         require_auth();

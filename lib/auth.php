@@ -29,7 +29,7 @@ function require_auth(): void {
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['error' => 'unauthorized']);
         } else {
-            header('Location: index.php?action=login');
+            header('Location: ' . url('login'));
         }
         exit;
     }
@@ -95,7 +95,7 @@ function handle_login(PDO $db): void {
                         error_log('LBTT rehash failed: ' . $e->getMessage());
                     }
                 }
-                header('Location: index.php?action=calendar');
+                header('Location: ' . url('calendar'));
                 exit;
             }
             login_ratelimit_register_failure();
@@ -194,7 +194,7 @@ function handle_signup(PDO $db): void {
                     } else {
                         try {
                             $tok = set_email_verify_token($db, $uid);
-                            $verifyUrl = app_url() . '?action=verify_email&token=' . urlencode($tok);
+                            $verifyUrl = app_url('verify_email', ['token' => $tok]);
                             send_email_verification($email, $verifyUrl, $firstName !== '' ? $firstName : $u);
                         } catch (Throwable $e) {
                             error_log('LBTT send_email_verification failed: ' . $e->getMessage());
@@ -204,7 +204,7 @@ function handle_signup(PDO $db): void {
                     session_regenerate_id(true);
                     $_SESSION['uid'] = $uid;
                     $_SESSION['user'] = $email;
-                    header('Location: index.php?action=calendar');
+                    header('Location: ' . url('calendar'));
                     exit;
                 }
             }
@@ -238,7 +238,7 @@ function handle_verify_email(PDO $db): void {
         </span>
     </div>
     <p style="margin-top: 14px;">
-        <a class="lbtt-btn lbtt-btn-primary" href="index.php?action=<?= current_user_id() ? 'calendar' : 'login' ?>">
+        <a class="lbtt-btn lbtt-btn-primary" href="<?= e(url(current_user_id() ? 'calendar' : 'login')) ?>">
             <?= current_user_id() ? 'Retour au calendrier' : 'Se connecter' ?> →
         </a>
     </p>

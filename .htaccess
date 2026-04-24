@@ -21,11 +21,30 @@ ServerSignature Off
     Require all denied
 </FilesMatch>
 
-# Dossiers internes (includes PHP, design handoff, data runtime, scripts, backups, git)
+# URL rewrite + blocages dossiers internes
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Blocages dossiers internes (avant les rewrites de routage)
     RewriteRule ^(lib|views|data|scripts|backups|design_handoff_lbtt_redesign)(/|$) - [F,L]
     RewriteRule ^\.git(/|$) - [F,L]
+
+    # Fichiers/dossiers réels (assets, robots.txt, etc.) → servis directement
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Routes SEO-friendly → index.php?action=X
+    RewriteRule ^signup/invite/([A-Za-z0-9_-]+)/?$        index.php?action=signup&invite=$1       [L,QSA]
+    RewriteRule ^verify-email/([A-Za-z0-9_-]+)/?$         index.php?action=verify_email&token=$1  [L,QSA]
+    RewriteRule ^team/(\d+)/?$                            index.php?action=team&id=$1             [L,QSA]
+    RewriteRule ^avatar/(\d+)\.jpg$                       index.php?action=avatar&id=$1           [L,QSA]
+    RewriteRule ^api/entries/?$                           index.php?action=api_entries            [L,QSA]
+    RewriteRule ^api/save-entry/?$                        index.php?action=api_save_entry         [L,QSA]
+    RewriteRule ^(login|signup|logout|calendar|summary|projects|profile|users)/?$  index.php?action=$1  [L,QSA]
+
+    # Racine → index.php (PHP gère : login si non-auth, sinon calendar)
+    RewriteRule ^$                                        index.php                               [L]
 </IfModule>
 
 # Fichiers de cache / rate limit

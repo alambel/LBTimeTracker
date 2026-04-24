@@ -7,11 +7,10 @@ $projectsActiveWithEntries = count($rows);
         <h1 class="lbtt-page-title">résumé.</h1>
     </div>
     <a class="lbtt-btn lbtt-btn-primary"
-       href="index.php?action=summary&from=<?= e($from) ?>&to=<?= e($to) ?>&format=csv">↓ EXPORT CSV</a>
+       href="<?= e(url('summary', ['from' => $from, 'to' => $to, 'format' => 'csv'])) ?>">↓ EXPORT CSV</a>
 </div>
 
-<form method="get" class="lbtt-summary-filter">
-    <input type="hidden" name="action" value="summary">
+<form method="get" action="<?= e(url('summary')) ?>" class="lbtt-summary-filter">
     <div class="field">
         <label class="lbtt-label" for="sum-from">Du</label>
         <input id="sum-from" class="lbtt-input" type="date" name="from" value="<?= e($from) ?>">

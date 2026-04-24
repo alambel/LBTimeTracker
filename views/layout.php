@@ -46,13 +46,13 @@
         </div>
         <nav class="lbtt-rail-nav" aria-label="Navigation principale">
             <?php foreach ($navItems as [$key, $label, $num]): ?>
-                <a href="index.php?action=<?= e($key) ?>" class="lbtt-rail-nav-item<?= ($page ?? '') === $key ? ' active' : '' ?>">
+                <a href="<?= e(url($key)) ?>" class="lbtt-rail-nav-item<?= ($page ?? '') === $key ? ' active' : '' ?>">
                     <span class="n"><?= e($num) ?></span>
                     <span><?= e($label) ?></span>
                 </a>
             <?php endforeach; ?>
         </nav>
-        <a href="index.php?action=profile" class="lbtt-rail-session lbtt-rail-session-link<?= ($page ?? '') === 'profile' ? ' active' : '' ?>">
+        <a href="<?= e(url('profile')) ?>" class="lbtt-rail-session lbtt-rail-session-link<?= ($page ?? '') === 'profile' ? ' active' : '' ?>">
             <div class="lbtt-label" style="margin-bottom: 6px;">Session</div>
             <div class="lbtt-session-row">
                 <div class="lbtt-avatar<?= $myAvatar ? ' has-image' : '' ?>">
@@ -74,7 +74,7 @@
             <div class="lbtt-cal-tip" style="border-color: var(--lbtt-accent);">
                 <span class="lbtt-chip lbtt-chip-accent">Action requise</span>
                 <span class="lbtt-cal-tip-text">
-                    Ton compte n'a pas encore d'email — <a href="index.php?action=profile" style="text-decoration: underline;">ajoute-le ici</a> pour pouvoir recevoir des invitations.
+                    Ton compte n'a pas encore d'email — <a href="<?= e(url('profile')) ?>" style="text-decoration: underline;">ajoute-le ici</a> pour pouvoir recevoir des invitations.
                 </span>
             </div>
         <?php endif; ?>
@@ -84,12 +84,12 @@
 </div>
 <nav class="lbtt-tabbar" aria-label="Navigation">
     <?php foreach ($navItems as [$key, $label, $num]): ?>
-        <a href="index.php?action=<?= e($key) ?>" class="lbtt-tab<?= ($page ?? '') === $key ? ' active' : '' ?>">
+        <a href="<?= e(url($key)) ?>" class="lbtt-tab<?= ($page ?? '') === $key ? ' active' : '' ?>">
             <span class="ix"><?= e($num) ?></span>
             <span class="lbl"><?= e(strtolower($label)) ?>.</span>
         </a>
     <?php endforeach; ?>
-    <a href="index.php?action=profile" class="lbtt-tab<?= ($page ?? '') === 'profile' ? ' active' : '' ?>">
+    <a href="<?= e(url('profile')) ?>" class="lbtt-tab<?= ($page ?? '') === 'profile' ? ' active' : '' ?>">
         <span class="ix">
             <?php if ($myAvatar): ?>
                 <img src="<?= e($myAvatar) ?>" alt="" class="lbtt-tab-avatar">

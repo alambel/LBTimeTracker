@@ -51,31 +51,81 @@ function user_color_hsl(int $userId): string {
 /** URL relative de l'avatar d'un user (ou null si pas défini). */
 function avatar_url(array $user): ?string {
     if (empty($user['avatar_path'])) return null;
-    return 'index.php?action=avatar&id=' . (int)$user['id'];
+    return url('avatar', ['id' => (int)$user['id']]);
 }
 
-/** URL absolue de l'app (pour liens dans emails).
+/**
+ * URL SEO-friendly pour un action (interne).
+ *  url('calendar')             → '/calendar'
+ *  url('team', ['id' => 3])    → '/team/3'
+ *  url('calendar', ['month' => '2026-01']) → '/calendar?month=2026-01'
+ *  url('signup', ['invite' => 'abc']) → '/signup/invite/abc'
+ *  url('verify_email', ['token' => 'xyz']) → '/verify-email/xyz'
+ *  url('avatar', ['id' => 5])  → '/avatar/5.jpg'
+ *  url('unknown_action')       → 'index.php?action=unknown_action' (fallback)
+ */
+function url(string $action, array $params = []): string {
+    $path = null;
+    if ($action === 'team' && isset($params['id'])) {
+        $id = (int)$params['id']; unset($params['id']);
+        $path = '/team/' . $id;
+    } elseif ($action === 'avatar' && isset($params['id'])) {
+        $id = (int)$params['id']; unset($params['id']);
+        $path = '/avatar/' . $id . '.jpg';
+    } elseif ($action === 'verify_email' && isset($params['token'])) {
+        $t = urlencode((string)$params['token']); unset($params['token']);
+        $path = '/verify-email/' . $t;
+    } elseif ($action === 'signup' && isset($params['invite'])) {
+        $t = urlencode((string)$params['invite']); unset($params['invite']);
+        $path = '/signup/invite/' . $t;
+    } else {
+        $simple = [
+            'login' => '/login', 'signup' => '/signup', 'logout' => '/logout',
+            'calendar' => '/calendar', 'summary' => '/summary', 'projects' => '/projects',
+            'profile' => '/profile', 'users' => '/users',
+            'team' => '/team', 'avatar' => '/avatar',
+            'verify_email' => '/verify-email',
+            'api_entries' => '/api/entries', 'api_save_entry' => '/api/save-entry',
+        ];
+        if (isset($simple[$action])) {
+            $path = $simple[$action];
+        } else {
+            $p = array_merge(['action' => $action], $params);
+            return 'index.php?' . http_build_query($p);
+        }
+    }
+    return $params ? $path . '?' . http_build_query($params) : $path;
+}
+
+/** Base URL absolue de l'app (sans chemin), canonique si configurée.
  *
  * Priorité à `config.canonical_host` (ex : `https://time.njs.ch`) pour éviter
  * le host-header injection : sans valeur canonique, un attaquant qui force
  * `Host: evil.com` verrait les liens d'invitation pointer vers son domaine.
  */
-function app_url(): string {
+function app_base_url(): string {
     global $config;
     $canonical = is_array($config ?? null) ? (string)($config['canonical_host'] ?? '') : '';
-    if ($canonical !== '') {
-        // Doit commencer par http:// ou https://, sinon on ignore
-        if (preg_match('#^https?://[^/\s]+#i', $canonical)) {
-            return rtrim($canonical, '/') . '/index.php';
-        }
+    if ($canonical !== '' && preg_match('#^https?://[^/\s]+#i', $canonical)) {
+        return rtrim($canonical, '/');
     }
     $scheme = (function_exists('is_https') && is_https()) ? 'https' : 'http';
     $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
-    // Sanitise basique : uniquement [a-z0-9.:-]
     $host = preg_replace('/[^A-Za-z0-9.:_\-]/', '', $host) ?: 'localhost';
     $script = (string)($_SERVER['SCRIPT_NAME'] ?? '/index.php');
     $dir = rtrim(str_replace('\\', '/', dirname($script)), '/');
-    return $scheme . '://' . $host . ($dir === '' ? '' : $dir) . '/index.php';
+    return $scheme . '://' . $host . ($dir === '' ? '' : $dir);
+}
+
+/** URL absolue pour un action (utilisée dans les emails). */
+function app_url(string $action = '', array $params = []): string {
+    $base = app_base_url();
+    if ($action === '') return $base;
+    $path = url($action, $params);
+    // Si path commence par /, on le concatène tel quel. Sinon (fallback
+    // index.php?action=…), on préfixe par /.
+    if ($path[0] !== '/') $path = '/' . $path;
+    return $base . $path;
 }
 
 function month_title(string $month): string {
