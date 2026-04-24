@@ -10,6 +10,10 @@ function send_security_headers(): void {
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()');
+    // HSTS — force HTTPS pendant 1 an pour tout le sous-domaine
+    if (is_https()) {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    }
     // CSP — 'unsafe-inline' sur style-src uniquement (colors projets en inline style) ;
     // scripts restent strictement 'self'.
     header(
@@ -27,6 +31,13 @@ function send_security_headers(): void {
     );
 }
 
+/** Headers pour page authentifiée : empêche cache partagé / back-button leak. */
+function send_private_cache_headers(): void {
+    if (headers_sent()) return;
+    header('Cache-Control: private, no-store, max-age=0');
+    header('Pragma: no-cache');
+}
+
 /** HTTPS détecté (via proxy type Cloudflare ou direct TLS). */
 function is_https(): bool {
     if (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') return true;
@@ -36,10 +47,22 @@ function is_https(): bool {
     return false;
 }
 
-/** IP client "vraie" si derrière Cloudflare, sinon REMOTE_ADDR. */
+/** IP client "vraie" si derrière Cloudflare, sinon REMOTE_ADDR.
+ *
+ * Par défaut, on ignore `CF-Connecting-IP` : si l'app n'est PAS derrière CF,
+ * un attaquant peut l'injecter lui-même à chaque requête et bypasser le
+ * rate-limit (chaque bucket étant indexé par IP).
+ *
+ * Pour réactiver (si vraiment derrière Cloudflare), ajouter dans config.php :
+ *     'trust_cloudflare' => true,
+ */
 function client_ip(): string {
-    $cf = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '';
-    if (is_string($cf) && filter_var($cf, FILTER_VALIDATE_IP)) return $cf;
+    global $config;
+    $trustCf = is_array($config ?? null) && !empty($config['trust_cloudflare']);
+    if ($trustCf) {
+        $cf = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '';
+        if (is_string($cf) && filter_var($cf, FILTER_VALIDATE_IP)) return $cf;
+    }
     return (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
 }
 

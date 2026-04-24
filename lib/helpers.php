@@ -45,12 +45,26 @@ function avatar_url(array $user): ?string {
     return 'index.php?action=avatar&id=' . (int)$user['id'];
 }
 
-/** URL absolue de l'app (pour liens dans emails). */
+/** URL absolue de l'app (pour liens dans emails).
+ *
+ * Priorité à `config.canonical_host` (ex : `https://time.njs.ch`) pour éviter
+ * le host-header injection : sans valeur canonique, un attaquant qui force
+ * `Host: evil.com` verrait les liens d'invitation pointer vers son domaine.
+ */
 function app_url(): string {
+    global $config;
+    $canonical = is_array($config ?? null) ? (string)($config['canonical_host'] ?? '') : '';
+    if ($canonical !== '') {
+        // Doit commencer par http:// ou https://, sinon on ignore
+        if (preg_match('#^https?://[^/\s]+#i', $canonical)) {
+            return rtrim($canonical, '/') . '/index.php';
+        }
+    }
     $scheme = (function_exists('is_https') && is_https()) ? 'https' : 'http';
     $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+    // Sanitise basique : uniquement [a-z0-9.:-]
+    $host = preg_replace('/[^A-Za-z0-9.:_\-]/', '', $host) ?: 'localhost';
     $script = (string)($_SERVER['SCRIPT_NAME'] ?? '/index.php');
-    // Base = dirname(script) si script != index.php sinon dirname ok
     $dir = rtrim(str_replace('\\', '/', dirname($script)), '/');
     return $scheme . '://' . $host . ($dir === '' ? '' : $dir) . '/index.php';
 }

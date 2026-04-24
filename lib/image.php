@@ -39,6 +39,18 @@ function save_user_avatar(int $userId, array $file): string {
     if (!in_array($mime, $allowed, true)) {
         throw new RuntimeException('Format non supporté (JPEG / PNG / WebP).');
     }
+    // Garde contre les pixel bombs (PNG ratio extrême qui exploseraient
+    // la mémoire pendant imagecreatefromstring)
+    $sw0 = (int)($info[0] ?? 0);
+    $sh0 = (int)($info[1] ?? 0);
+    $MAX_SIDE = 8000;
+    if ($sw0 > $MAX_SIDE || $sh0 > $MAX_SIDE) {
+        throw new RuntimeException('Image trop grande (max ' . $MAX_SIDE . 'px par côté).');
+    }
+    // Seuil pixel total (8000×8000 = 64 Mpx ≈ 256 Mo en truecolor)
+    if (($sw0 * $sh0) > 40000000) {
+        throw new RuntimeException('Image trop grande (max ~40 Mpx).');
+    }
     if (!function_exists('imagecreatefromstring')) {
         throw new RuntimeException('Extension GD absente du serveur.');
     }

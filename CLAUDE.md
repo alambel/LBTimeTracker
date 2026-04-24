@@ -104,6 +104,13 @@ entries(
 
 ## Sécurité
 - `config.php` en mode 0600, contient uniquement les credentials MariaDB + `timezone` + `session_name`. Plus de hash user (migré en DB).
+- **Clés optionnelles de durcissement** à ajouter dans `config.php` :
+  ```php
+  'canonical_host' => 'https://time.njs.ch', // anti host-header injection (liens emails)
+  'trust_cloudflare' => true,                // n'activer que si vraiment derrière CF (sinon bypass rate-limit)
+  'mail_from' => 'noreply@time.njs.ch',      // sinon dérivé du canonical_host ou HTTP_HOST
+  'mail_from_name' => 'LBTimeTracker',
+  ```
 - Session : `httponly=true`, `samesite=Lax`, nom `lbtt`. `$_SESSION['uid']` + `$_SESSION['user']`.
 - Login : lookup `users` par username, `password_verify` bcrypt. `session_regenerate_id(true)` après login.
 - Signup : rate-limit partagé avec login. Username regex `[A-Za-z0-9._-]{2,64}`. Password 6–128.

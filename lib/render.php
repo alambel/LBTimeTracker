@@ -399,9 +399,12 @@ function render_profile(PDO $db): void {
                     throw new RuntimeException('Cette adresse est déjà utilisée par un autre compte.');
                 }
                 update_user_email($db, $uid, $email);
-                $consumed = auto_consume_invitations_for_email($db, $uid, $email);
-                $notice = 'Email mis à jour'
-                        . ($consumed > 0 ? ' — ajouté à ' . $consumed . ' projet' . ($consumed > 1 ? 's' : '') . ' en attente.' : '.');
+                // PAS d'auto-consume des invitations en attente ici (l'email n'est
+                // pas vérifié via OTP à ce stade → sinon, je change mon email pour
+                // celui d'une victime et je hérite de ses invitations).
+                // L'utilisateur doit cliquer le lien de chaque invitation pour prouver
+                // l'accès à la boîte mail (cf. audit sécu #3).
+                $notice = 'Email mis à jour.';
             } elseif ($op === 'identity') {
                 $fn = sanitize_name((string)($_POST['first_name'] ?? ''), 64);
                 $ln = sanitize_name((string)($_POST['last_name'] ?? ''), 64);

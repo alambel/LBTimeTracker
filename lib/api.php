@@ -40,9 +40,17 @@ function api_dispatch(string $action, PDO $db): void {
                     return;
                 }
                 if ($projectId !== null) {
-                    if (!get_project($db, $projectId)) {
+                    $proj = get_project($db, $projectId);
+                    if (!$proj) {
                         http_response_code(404);
                         echo json_encode(['error' => 'Project not found']);
+                        return;
+                    }
+                    // Refus écriture sur projet archivé (l'UI le cache mais un
+                    // client API pourrait cibler directement son id)
+                    if (!empty($proj['archived'])) {
+                        http_response_code(403);
+                        echo json_encode(['error' => 'Project is archived']);
                         return;
                     }
                     // Doit être membre du projet pour y rattacher une entrée

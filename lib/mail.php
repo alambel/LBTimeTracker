@@ -10,10 +10,16 @@ function _mail_from_address(array $config): string {
     if (!empty($config['mail_from']) && valid_email((string)$config['mail_from'])) {
         return (string)$config['mail_from'];
     }
-    $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
-    // strip port + www
-    $host = preg_replace('/:\d+$/', '', $host) ?? $host;
-    $host = preg_replace('/^www\./i', '', $host) ?? $host;
+    // Préfère un host canonique configuré (anti host-header injection).
+    $canonical = (string)($config['canonical_host'] ?? '');
+    if ($canonical !== '' && preg_match('#^https?://([^/\s:]+)#i', $canonical, $m)) {
+        $host = strtolower($m[1]);
+    } else {
+        $host = (string)($_SERVER['HTTP_HOST'] ?? 'localhost');
+        $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+        $host = preg_replace('/^www\./i', '', $host) ?? $host;
+        $host = preg_replace('/[^a-z0-9.\-]/i', '', $host) ?: 'localhost';
+    }
     return 'noreply@' . $host;
 }
 

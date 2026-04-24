@@ -73,7 +73,7 @@ $color = user_color_hsl((int)$me['id']);
                 <button type="submit" class="lbtt-btn lbtt-btn-primary">Enregistrer</button>
                 <?php if (!empty($me['avatar_path'])): ?>
                     <button type="submit" name="op" value="remove_avatar" class="lbtt-btn lbtt-btn-ghost lbtt-btn-danger"
-                            onclick="return confirm('Supprimer la photo de profil ?');">Retirer la photo</button>
+                            data-confirm="Supprimer la photo de profil ?">Retirer la photo</button>
                 <?php endif; ?>
             </div>
         </form>

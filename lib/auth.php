@@ -33,6 +33,8 @@ function require_auth(): void {
         }
         exit;
     }
+    // Pages authentifiées : pas de cache (proxies / back-button)
+    send_private_cache_headers();
 }
 
 function require_app_admin(PDO $db): void {
@@ -58,7 +60,18 @@ function handle_login(PDO $db): void {
             $u = trim((string)($_POST['username'] ?? ''));
             $p = (string)($_POST['password'] ?? '');
             $row = $u !== '' ? get_user_by_username($db, $u) : null;
-            if ($row && empty($row['archived']) && password_verify($p, (string)$row['password_hash'])) {
+
+            // Hash dummy stable (bcrypt cost 12 d'un plaintext aléatoire) : on
+            // fait toujours tourner password_verify pour éviter l'énumération
+            // par timing (user absent → pas de bcrypt = réponse rapide).
+            // Ce hash ne correspond à aucun mot de passe utilisable.
+            $DUMMY_HASH = '$2y$12$H/HZyeLgUZQT0QG.QgNtwe3NGnF6NhG4zgbreZncdyRxRJia2OnX.';
+            $hashToCheck = ($row && empty($row['archived']))
+                ? (string)$row['password_hash']
+                : $DUMMY_HASH;
+            $verified = password_verify($p, $hashToCheck);
+
+            if ($row && empty($row['archived']) && $verified) {
                 session_regenerate_id(true);
                 $_SESSION['uid'] = (int)$row['id'];
                 $_SESSION['user'] = (string)$row['username'];
@@ -150,9 +163,15 @@ function handle_signup(PDO $db): void {
                     $uid = 0;
                 }
                 if ($uid > 0) {
-                    // Consomme les invitations en attente pour cet email
-                    try { auto_consume_invitations_for_email($db, $uid, $email); }
-                    catch (Throwable $e) { error_log('LBTT auto-consume failed: ' . $e->getMessage()); }
+                    // Ne consomme QUE l'invitation du token fourni (preuve de réception
+                    // de l'email). Les autres invitations en attente pour cet email ne
+                    // sont PAS acceptées automatiquement : l'user doit cliquer leur
+                    // propre lien (sinon, un attaquant qui signup avec l'email d'une
+                    // victime prend tous ses projets — cf. audit sécu #3).
+                    if ($invitation && (int)$invitation['id'] > 0) {
+                        try { consume_invitation_for_user($db, (int)$invitation['id'], $uid); }
+                        catch (Throwable $e) { error_log('LBTT consume invitation failed: ' . $e->getMessage()); }
+                    }
 
                     session_regenerate_id(true);
                     $_SESSION['uid'] = $uid;

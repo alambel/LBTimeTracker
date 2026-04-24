@@ -47,7 +47,7 @@
                     <input type="hidden" name="op" value="toggle_app_admin">
                     <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
                     <button type="submit" class="lbtt-btn lbtt-btn-ghost" style="font-size: 11px;"
-                            onclick="return confirm('<?= empty($u['is_app_admin']) ? 'Promouvoir' : 'Retirer' ?> app admin ?');">
+                            data-confirm="<?= empty($u['is_app_admin']) ? 'Promouvoir' : 'Retirer' ?> app admin ?">
                         <?= !empty($u['is_app_admin']) ? '✓ admin' : 'non' ?>
                     </button>
                 </form>
@@ -59,7 +59,7 @@
                     <input type="hidden" name="op" value="archive_toggle">
                     <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
                     <button type="submit" class="lbtt-btn lbtt-btn-ghost" style="font-size: 11px;"
-                            onclick="return confirm('<?= !empty($u['archived']) ? 'Restaurer' : 'Archiver' ?> <?= e(addslashes($u['username'])) ?> ?');">
+                            data-confirm="<?= !empty($u['archived']) ? 'Restaurer' : 'Archiver' ?> <?= e($u['username']) ?> ?">
                         <?= !empty($u['archived']) ? '↑ Restaurer' : '▢ Archiver' ?>
                     </button>
                 </form>

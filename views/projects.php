@@ -116,7 +116,7 @@ $meId = current_user_id();
                     <div class="lbtt-proj-manage-btns">
                         <button type="submit" name="op" value="update" class="lbtt-btn lbtt-btn-primary" style="font-size: 11px;">Enregistrer</button>
                         <button type="submit" name="op" value="archive_toggle" class="lbtt-btn lbtt-btn-ghost" style="font-size: 11px;"
-                                onclick="return confirm('<?= !empty($p['archived']) ? 'Restaurer' : 'Archiver' ?> ce projet ?');">
+                                data-confirm="<?= !empty($p['archived']) ? 'Restaurer' : 'Archiver' ?> ce projet ?">
                             <?= !empty($p['archived']) ? '↑ Restaurer' : '▢ Archiver' ?>
                         </button>
                     </div>
@@ -140,7 +140,7 @@ $meId = current_user_id();
                             </select>
                             <button type="submit" name="op" value="set_member_role" class="lbtt-btn lbtt-btn-ghost" style="font-size: 10px;">Rôle</button>
                             <button type="submit" name="op" value="remove_member" class="lbtt-btn lbtt-btn-ghost lbtt-btn-danger" style="font-size: 10px;"
-                                    onclick="return confirm('Retirer <?= e(addslashes($m['username'])) ?> du projet ?');">Retirer</button>
+                                    data-confirm="Retirer <?= e($m['username']) ?> du projet ?">Retirer</button>
                         </form>
                     <?php endforeach; ?>
 
@@ -173,7 +173,7 @@ $meId = current_user_id();
                                     <input type="hidden" name="id" value="<?= $pid ?>">
                                     <input type="hidden" name="invitation_id" value="<?= (int)$inv['id'] ?>">
                                     <button type="submit" class="lbtt-btn lbtt-btn-ghost lbtt-btn-danger" style="font-size: 10px;"
-                                            onclick="return confirm('Révoquer l\'invitation pour <?= e(addslashes($inv['email'])) ?> ?');">
+                                            data-confirm="Révoquer l'invitation pour <?= e($inv['email']) ?> ?">
                                         Révoquer
                                     </button>
                                 </form>
@@ -189,7 +189,7 @@ $meId = current_user_id();
                     <input type="hidden" name="id" value="<?= $pid ?>">
                     <input type="hidden" name="user_id" value="<?= (int)$meId ?>">
                     <button type="submit" class="lbtt-btn lbtt-btn-ghost lbtt-btn-danger" style="font-size: 10px;"
-                            onclick="return confirm('Quitter ce projet ?');">Quitter le projet</button>
+                            data-confirm="Quitter ce projet ?">Quitter le projet</button>
                 </form>
             <?php endif; ?>
         </div>

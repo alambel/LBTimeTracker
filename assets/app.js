@@ -21,6 +21,20 @@
         });
     });
 
+    // ===== Confirmation générique (CSP bloque les onclick inline) =====
+    // Usage sur un <button data-confirm="Vraiment ?"> — intercepte le click
+    // avant que le form parent ne submit et demande confirmation.
+    document.addEventListener('click', (ev) => {
+        const el = ev.target.closest('[data-confirm]');
+        if (!el) return;
+        const msg = el.getAttribute('data-confirm');
+        if (!msg) return;
+        if (!window.confirm(msg)) {
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
+    }, true); // capture pour court-circuiter avant handlers internes
+
     // ===== Setup wizard =====
     (function initSetup() {
         const form = document.querySelector('[data-setup-wizard]');

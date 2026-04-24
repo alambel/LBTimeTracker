@@ -597,14 +597,9 @@ function consume_invitation_for_user(PDO $db, int $invitationId, int $userId): ?
     }
 }
 
-/** Consomme toutes les invitations en attente pour cet email → retourne le nombre. */
-function auto_consume_invitations_for_email(PDO $db, int $userId, string $email): int {
-    $pending = get_pending_invitations_for_email($db, $email);
-    foreach ($pending as $inv) {
-        consume_invitation_for_user($db, (int)$inv['id'], $userId);
-    }
-    return count($pending);
-}
+// Note : pas d'auto_consume_invitations_for_email — la consommation d'une
+// invitation exige la preuve de possession de la boîte email via le token
+// (cliqué depuis le mail). Ne pas ré-introduire sans vérification OTP.
 
 function revoke_invitation(PDO $db, int $invitationId, int $projectId): void {
     $stmt = $db->prepare('DELETE FROM project_invitations WHERE id = ? AND project_id = ?');
