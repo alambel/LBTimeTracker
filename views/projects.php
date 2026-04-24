@@ -89,9 +89,9 @@ $meId = current_user_id();
                     $isMe = ((int)$m['id'] === (int)$meId);
                     $mCls = 'lbtt-tag' . ($m['role'] === 'admin' ? ' is-admin' : '');
                 ?>
-                    <span class="<?= $mCls ?>" title="<?= e($m['username']) ?> — <?= e($m['role']) ?>">
+                    <span class="<?= $mCls ?>" title="<?= e(display_name($m)) ?> — <?= e($m['role']) ?>">
                         <span class="lbtt-tag-dot" style="background: <?= e($p['color']) ?>;"></span>
-                        <?= e($m['username']) ?>
+                        <?= e(display_name($m)) ?>
                         <span class="lbtt-role-badge lbtt-role-<?= e($m['role']) ?>"><?= $m['role'] === 'admin' ? 'admin' : 'member' ?></span>
                         <?php if (!empty($m['archived'])): ?><span class="lbtt-chip" style="margin-left: 4px;">archivé</span><?php endif; ?>
                         <?php if ($isMe): ?><span style="color: var(--lbtt-muted);">(moi)</span><?php endif; ?>
@@ -134,14 +134,14 @@ $meId = current_user_id();
                             <?= csrf_field() ?>
                             <input type="hidden" name="id" value="<?= $pid ?>">
                             <input type="hidden" name="user_id" value="<?= $targetId ?>">
-                            <span class="lbtt-proj-member-name"><?= e($m['username']) ?><?php if ($isMe): ?> <span style="color: var(--lbtt-muted);">(moi)</span><?php endif; ?></span>
+                            <span class="lbtt-proj-member-name"><?= e(display_name($m)) ?><?php if ($isMe): ?> <span style="color: var(--lbtt-muted);">(moi)</span><?php endif; ?></span>
                             <select name="role" class="lbtt-select" style="font-size: 11px; padding: 4px 6px;">
                                 <option value="admin" <?= $m['role'] === 'admin' ? 'selected' : '' ?>>admin</option>
                                 <option value="member" <?= $m['role'] === 'member' ? 'selected' : '' ?>>member</option>
                             </select>
                             <button type="submit" name="op" value="set_member_role" class="lbtt-btn lbtt-btn-ghost" style="font-size: 10px;">Rôle</button>
                             <button type="submit" name="op" value="remove_member" class="lbtt-btn lbtt-btn-ghost lbtt-btn-danger" style="font-size: 10px;"
-                                    data-confirm="Retirer <?= e($m['username']) ?> du projet ?">Retirer</button>
+                                    data-confirm="Retirer <?= e(display_name($m)) ?> du projet ?">Retirer</button>
                         </form>
                     <?php endforeach; ?>
 

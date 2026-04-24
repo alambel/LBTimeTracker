@@ -36,7 +36,9 @@
                 <?php endif; ?>
                 <span class="nm">
                     <?= e(display_name($u)) ?>
-                    <span style="color: var(--lbtt-muted); font-size: 11px;"> @<?= e($u['username']) ?></span>
+                    <?php if (!empty($u['email']) && $u['email'] !== display_name($u)): ?>
+                        <span style="color: var(--lbtt-muted); font-size: 11px;"> <?= e($u['email']) ?></span>
+                    <?php endif; ?>
                     <?php if ($isMe): ?> <span style="color: var(--lbtt-muted);">(moi)</span><?php endif; ?>
                 </span>
             </div>
@@ -59,7 +61,7 @@
                     <input type="hidden" name="op" value="archive_toggle">
                     <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
                     <button type="submit" class="lbtt-btn lbtt-btn-ghost" style="font-size: 11px;"
-                            data-confirm="<?= !empty($u['archived']) ? 'Restaurer' : 'Archiver' ?> <?= e($u['username']) ?> ?">
+                            data-confirm="<?= !empty($u['archived']) ? 'Restaurer' : 'Archiver' ?> <?= e(display_name($u)) ?> ?">
                         <?= !empty($u['archived']) ? '↑ Restaurer' : '▢ Archiver' ?>
                     </button>
                 </form>

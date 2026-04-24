@@ -60,14 +60,8 @@
             <?php endif; ?>
             <?php if ($error ?? null): ?><div class="lbtt-error"><?= e($error) ?></div><?php endif; ?>
             <label>
-                <span class="lbtt-label">Nom d'utilisateur</span>
-                <input class="lbtt-input" type="text" name="username" required autofocus
-                       minlength="2" maxlength="64" pattern="[A-Za-z0-9._\-]{2,64}"
-                       autocomplete="username" value="<?= e($form['username'] ?? '') ?>">
-            </label>
-            <label>
                 <span class="lbtt-label">Email</span>
-                <input class="lbtt-input" type="email" name="email" required maxlength="255"
+                <input class="lbtt-input" type="email" name="email" required autofocus maxlength="255"
                        autocomplete="email"
                        value="<?= e($form['email'] ?? '') ?>"
                        <?= ($invitation ?? null) ? 'readonly' : '' ?>>

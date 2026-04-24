@@ -42,8 +42,10 @@
             <h1>se connecter.</h1>
             <?php if ($error ?? null): ?><div class="lbtt-error"><?= e($error) ?></div><?php endif; ?>
             <label>
-                <span class="lbtt-label">Utilisateur</span>
-                <input class="lbtt-input" type="text" name="username" required autofocus autocomplete="username">
+                <span class="lbtt-label">Email</span>
+                <input class="lbtt-input" type="text" name="email" required autofocus
+                       autocomplete="username" inputmode="email"
+                       placeholder="toi@exemple.com">
             </label>
             <label>
                 <span class="lbtt-label">Mot de passe</span>

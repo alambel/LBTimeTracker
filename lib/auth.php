@@ -57,9 +57,20 @@ function handle_login(PDO $db): void {
         } elseif (!csrf_valid((string)($_POST['_csrf'] ?? ''))) {
             $error = 'Jeton de formulaire expiré. Rafraîchir la page et réessayer.';
         } else {
-            $u = trim((string)($_POST['username'] ?? ''));
+            // Le champ du form s'appelle "email" mais on accepte aussi un
+            // username pour les comptes legacy (migrés depuis config.php
+            // avant le passage à l'email).
+            $identifier = trim((string)($_POST['email'] ?? $_POST['username'] ?? ''));
             $p = (string)($_POST['password'] ?? '');
-            $row = $u !== '' ? get_user_by_username($db, $u) : null;
+            $row = null;
+            if ($identifier !== '') {
+                $normalized = normalize_email($identifier);
+                if (valid_email($normalized)) {
+                    $row = get_user_by_email($db, $normalized);
+                } else {
+                    $row = get_user_by_username($db, $identifier);
+                }
+            }
 
             // Hash dummy stable (bcrypt cost 12 d'un plaintext aléatoire) : on
             // fait toujours tourner password_verify pour éviter l'énumération
@@ -74,7 +85,8 @@ function handle_login(PDO $db): void {
             if ($row && empty($row['archived']) && $verified) {
                 session_regenerate_id(true);
                 $_SESSION['uid'] = (int)$row['id'];
-                $_SESSION['user'] = (string)$row['username'];
+                // Stocke l'email si dispo, sinon fallback username (legacy)
+                $_SESSION['user'] = (string)($row['email'] ?: $row['username']);
                 login_ratelimit_reset();
                 if (password_needs_rehash((string)$row['password_hash'], PASSWORD_BCRYPT)) {
                     try {
@@ -97,7 +109,7 @@ function handle_login(PDO $db): void {
 
 function handle_signup(PDO $db): void {
     $error = null;
-    $form = ['username' => '', 'email' => '', 'first_name' => '', 'last_name' => ''];
+    $form = ['email' => '', 'first_name' => '', 'last_name' => ''];
 
     // Pré-remplissage via invitation (?invite=TOKEN)
     $inviteToken = (string)($_GET['invite'] ?? $_POST['invite_token'] ?? '');
@@ -124,17 +136,13 @@ function handle_signup(PDO $db): void {
         } elseif ($blocked !== null) {
             $error = $blocked;
         } else {
-            $u = trim((string)($_POST['username'] ?? ''));
             $email = normalize_email((string)($_POST['email'] ?? ''));
             $firstName = sanitize_name((string)($_POST['first_name'] ?? ''), 64);
             $lastName = sanitize_name((string)($_POST['last_name'] ?? ''), 64);
             $p = (string)($_POST['password'] ?? '');
             $p2 = (string)($_POST['password2'] ?? '');
             // Granularité fixée à l'inscription : nouveaux comptes en hr10.
-            // Les app admins peuvent changer pour hd4 après, les users standards
-            // peuvent choisir entre hr10 et hd2 depuis leur profil.
             $mode = default_slot_mode();
-            $form['username'] = $u;
             $form['email'] = $email;
             $form['first_name'] = $firstName;
             $form['last_name'] = $lastName;
@@ -145,20 +153,18 @@ function handle_signup(PDO $db): void {
                 $form['email'] = $email;
             }
 
-            if ($u === '' || !preg_match('/^[A-Za-z0-9._-]{2,64}$/', $u)) {
-                $error = 'Nom invalide (2–64 car., lettres, chiffres, . _ -).';
-            } elseif (!valid_email($email)) {
+            if (!valid_email($email)) {
                 $error = 'Adresse email invalide.';
             } elseif (($pwErr = validate_password_policy($p)) !== null) {
                 $error = $pwErr;
             } elseif ($p !== $p2) {
                 $error = 'Les mots de passe ne correspondent pas.';
-            } elseif (get_user_by_username($db, $u)) {
-                $error = 'Ce nom d\'utilisateur est déjà pris.';
             } elseif (get_user_by_email($db, $email)) {
                 $error = 'Cette adresse email a déjà un compte.';
             } else {
                 $hash = password_hash($p, PASSWORD_BCRYPT);
+                // Username auto-généré depuis l'email (usage interne, plus affiché)
+                $u = username_from_email($db, $email);
                 try {
                     $uid = create_user($db, $u, $hash, false, $mode, $email);
                     if ($firstName !== '' || $lastName !== '') {
@@ -197,7 +203,7 @@ function handle_signup(PDO $db): void {
 
                     session_regenerate_id(true);
                     $_SESSION['uid'] = $uid;
-                    $_SESSION['user'] = $u;
+                    $_SESSION['user'] = $email;
                     header('Location: index.php?action=calendar');
                     exit;
                 }

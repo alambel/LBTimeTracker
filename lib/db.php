@@ -305,6 +305,30 @@ function create_user(PDO $db, string $username, string $passwordHash, bool $isAp
     return (int)$db->lastInsertId();
 }
 
+/**
+ * Génère un username unique à partir d'un email (local-part).
+ * Exemples :
+ *   "alice@x.com"  → "alice"  (si libre) sinon "alice1", "alice2", ...
+ *   "a+tag@x.com"  → "atag"   (stripping des caractères hors [a-z0-9._-])
+ */
+function username_from_email(PDO $db, string $email): string {
+    $local = strtolower(explode('@', $email)[0] ?? 'user');
+    $local = preg_replace('/[^a-z0-9._\-]/', '', $local) ?? '';
+    if ($local === '' || strlen($local) < 2) $local = 'user';
+    if (strlen($local) > 60) $local = substr($local, 0, 60);
+    $candidate = $local;
+    $i = 0;
+    while (get_user_by_username($db, $candidate) !== null) {
+        $i++;
+        $candidate = $local . $i;
+        if ($i > 9999) {
+            $candidate = $local . '_' . bin2hex(random_bytes(3));
+            break;
+        }
+    }
+    return $candidate;
+}
+
 function update_user_password(PDO $db, int $userId, string $newHash): void {
     $stmt = $db->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
     $stmt->execute([$newHash, $userId]);

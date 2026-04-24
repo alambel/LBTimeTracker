@@ -51,7 +51,7 @@ $color = user_color_hsl((int)$me['id']);
 
     <div class="lbtt-identity-hero-main">
         <div class="lbtt-identity-meta">
-            <span class="lbtt-mono lbtt-identity-username">@<?= e($me['username']) ?></span>
+            <span class="lbtt-mono lbtt-identity-username"><?= e(public_handle($me)) ?></span>
             <span class="lbtt-role-badge"><?= e($me['slot_mode']) ?></span>
             <?php if (!empty($me['is_app_admin'])): ?>
                 <span class="lbtt-role-badge lbtt-role-admin">app admin</span>

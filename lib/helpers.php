@@ -12,12 +12,21 @@ function normalize_email(string $s): string {
     return mb_strtolower(trim($s), 'UTF-8');
 }
 
-/** Nom affiché : « Prénom Nom » si renseigné, sinon username. */
+/** Nom affiché : « Prénom Nom » > email > username (fallback legacy). */
 function display_name(array $user): string {
     $fn = trim((string)($user['first_name'] ?? ''));
     $ln = trim((string)($user['last_name'] ?? ''));
     $full = trim($fn . ' ' . $ln);
     if ($full !== '') return $full;
+    $email = trim((string)($user['email'] ?? ''));
+    if ($email !== '') return $email;
+    return (string)($user['username'] ?? '');
+}
+
+/** Identifiant public à afficher (sous le nom) : email si présent, sinon username. */
+function public_handle(array $user): string {
+    $email = trim((string)($user['email'] ?? ''));
+    if ($email !== '') return $email;
     return (string)($user['username'] ?? '');
 }
 
