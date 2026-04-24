@@ -75,7 +75,9 @@ function handle_setup(): void {
                             }
                         } else {
                             $hash = password_hash($p, PASSWORD_BCRYPT);
-                            create_user($db, $u, $hash, true, 'hd4');
+                            // App admin créé au setup : hr10 par défaut, il peut
+                            // switcher vers hd4 / hd2 depuis son profil.
+                            create_user($db, $u, $hash, true, default_slot_mode());
                         }
                     } catch (Throwable $e) {
                         $error = 'Création de l\'utilisateur admin impossible : ' . $e->getMessage();

@@ -94,16 +94,9 @@
                 <span class="lbtt-label">Confirmer</span>
                 <input class="lbtt-input" type="password" name="password2" required minlength="10" maxlength="128" autocomplete="new-password">
             </label>
-            <label>
-                <span class="lbtt-label">Granularité des créneaux</span>
-                <select class="lbtt-select" name="slot_mode">
-                    <?php foreach (slot_modes() as $key => $cfg): ?>
-                        <option value="<?= e($key) ?>" <?= (($form['slot_mode'] ?? 'hd4') === $key) ? 'selected' : '' ?>>
-                            <?= e($cfg['label']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
+            <div class="footnote" style="margin-top: 4px; font-size: 11px;">
+                Suivi par tranches d'une heure · modifiable ensuite depuis ton profil.
+            </div>
             <button type="submit" class="lbtt-btn lbtt-btn-primary lbtt-btn-block">CRÉER →</button>
             <div class="footnote" style="margin-top: 10px;">
                 <a href="index.php?action=login" style="color: var(--lbtt-muted); text-decoration: underline;">← J'ai déjà un compte</a>

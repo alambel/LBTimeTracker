@@ -97,7 +97,7 @@ function handle_login(PDO $db): void {
 
 function handle_signup(PDO $db): void {
     $error = null;
-    $form = ['username' => '', 'email' => '', 'first_name' => '', 'last_name' => '', 'slot_mode' => 'hd4'];
+    $form = ['username' => '', 'email' => '', 'first_name' => '', 'last_name' => ''];
 
     // Pré-remplissage via invitation (?invite=TOKEN)
     $inviteToken = (string)($_GET['invite'] ?? $_POST['invite_token'] ?? '');
@@ -130,12 +130,14 @@ function handle_signup(PDO $db): void {
             $lastName = sanitize_name((string)($_POST['last_name'] ?? ''), 64);
             $p = (string)($_POST['password'] ?? '');
             $p2 = (string)($_POST['password2'] ?? '');
-            $mode = (string)($_POST['slot_mode'] ?? 'hd4');
+            // Granularité fixée à l'inscription : nouveaux comptes en hr10.
+            // Les app admins peuvent changer pour hd4 après, les users standards
+            // peuvent choisir entre hr10 et hd2 depuis leur profil.
+            $mode = default_slot_mode();
             $form['username'] = $u;
             $form['email'] = $email;
             $form['first_name'] = $firstName;
             $form['last_name'] = $lastName;
-            $form['slot_mode'] = $mode;
 
             // Si invitation : l'email est figé (celui de l'invitation)
             if ($invitation) {
@@ -151,8 +153,6 @@ function handle_signup(PDO $db): void {
                 $error = $pwErr;
             } elseif ($p !== $p2) {
                 $error = 'Les mots de passe ne correspondent pas.';
-            } elseif (!valid_slot_mode($mode)) {
-                $error = 'Mode de créneaux invalide.';
             } elseif (get_user_by_username($db, $u)) {
                 $error = 'Ce nom d\'utilisateur est déjà pris.';
             } elseif (get_user_by_email($db, $email)) {

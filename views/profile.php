@@ -110,16 +110,38 @@ $color = user_color_hsl((int)$me['id']);
 
     <div class="lbtt-profile-card">
         <div class="lbtt-label" style="margin-bottom: 8px;">Granularité des créneaux</div>
+        <?php
+            $allowedModes = allowed_slot_modes_for_user($me);
+            $currentMode = (string)($me['slot_mode'] ?? default_slot_mode());
+            $currentAllowed = isset($allowedModes[$currentMode]);
+            $allModes = slot_modes();
+        ?>
         <form method="post">
             <?= csrf_field() ?>
             <input type="hidden" name="op" value="slot_mode">
             <select class="lbtt-select" name="slot_mode">
-                <?php foreach (slot_modes() as $key => $cfg): ?>
-                    <option value="<?= e($key) ?>" <?= ($me['slot_mode'] ?? 'hd4') === $key ? 'selected' : '' ?>>
+                <?php foreach ($allowedModes as $key => $cfg): ?>
+                    <option value="<?= e($key) ?>" <?= $currentMode === $key ? 'selected' : '' ?>>
                         <?= e($cfg['label']) ?>
                     </option>
                 <?php endforeach; ?>
+                <?php if (!$currentAllowed && isset($allModes[$currentMode])): ?>
+                    <option value="<?= e($currentMode) ?>" selected disabled>
+                        <?= e($allModes[$currentMode]['label']) ?> — actuel, réservé admin
+                    </option>
+                <?php endif; ?>
             </select>
+            <?php if (!$currentAllowed): ?>
+                <div class="footnote" style="margin-top: 6px; color: var(--lbtt-accent-ink);">
+                    Ton mode actuel est réservé aux app admins — tu peux passer à un mode standard, mais pas revenir dessus.
+                </div>
+            <?php else: ?>
+                <div class="footnote" style="margin-top: 6px;">
+                    <?= empty($me['is_app_admin'])
+                        ? 'Tranches d\'1 h ou demi-journées de 4 h. Le mode 4 × 4 h est réservé aux app admins.'
+                        : 'Tous les modes disponibles (tu es app admin).' ?>
+                </div>
+            <?php endif; ?>
             <button type="submit" class="lbtt-btn lbtt-btn-primary" style="margin-top: 10px;">Enregistrer</button>
         </form>
     </div>

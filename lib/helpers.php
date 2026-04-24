@@ -143,6 +143,22 @@ function valid_slot_mode(string $m): bool {
     return array_key_exists($m, slot_modes());
 }
 
+/** Mode par défaut des nouveaux comptes (non configurable à l'inscription). */
+function default_slot_mode(): string {
+    return 'hr10';
+}
+
+/**
+ * Modes disponibles pour un user donné.
+ *  - App admin : tous (hd2, hd4, hr10)
+ *  - User standard : hd2 + hr10 uniquement (hd4 réservé aux admins)
+ */
+function allowed_slot_modes_for_user(array $user): array {
+    $all = slot_modes();
+    if (!empty($user['is_app_admin'])) return $all;
+    return array_intersect_key($all, array_flip(['hd2', 'hr10']));
+}
+
 function slot_mode_config(string $mode): array {
     $modes = slot_modes();
     return $modes[$mode] ?? $modes['hd4'];

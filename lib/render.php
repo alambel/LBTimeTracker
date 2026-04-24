@@ -392,7 +392,11 @@ function render_profile(PDO $db): void {
         try {
             if ($op === 'slot_mode') {
                 $mode = (string)($_POST['slot_mode'] ?? '');
-                if (!valid_slot_mode($mode)) throw new RuntimeException('Mode invalide');
+                if (!valid_slot_mode($mode)) throw new RuntimeException('Mode invalide.');
+                $allowed = allowed_slot_modes_for_user($me);
+                if (!isset($allowed[$mode])) {
+                    throw new RuntimeException('Ce mode est réservé aux app admins.');
+                }
                 update_user_slot_mode($db, $uid, $mode);
                 $notice = 'Granularité mise à jour.';
             } elseif ($op === 'email') {
