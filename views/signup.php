@@ -41,6 +41,12 @@
             <?php if ($invitation ?? null): ?>
                 <input type="hidden" name="invite_token" value="<?= e($inviteToken) ?>">
             <?php endif; ?>
+            <!-- Honeypot (anti-bot) : ne pas remplir. Caché en CSS + aria-hidden. -->
+            <div class="lbtt-hp" aria-hidden="true">
+                <label>Site web (laisser vide)
+                    <input type="text" name="website" tabindex="-1" autocomplete="off">
+                </label>
+            </div>
             <div class="lbtt-label eyebrow">Inscription</div>
             <h1>créer un compte.</h1>
             <?php if ($invitation ?? null): ?>
@@ -81,12 +87,12 @@
                 </label>
             </div>
             <label>
-                <span class="lbtt-label">Mot de passe (6 car. min.)</span>
-                <input class="lbtt-input" type="password" name="password" required minlength="6" maxlength="128" autocomplete="new-password">
+                <span class="lbtt-label">Mot de passe (10 car. min.)</span>
+                <input class="lbtt-input" type="password" name="password" required minlength="10" maxlength="128" autocomplete="new-password">
             </label>
             <label>
                 <span class="lbtt-label">Confirmer</span>
-                <input class="lbtt-input" type="password" name="password2" required minlength="6" maxlength="128" autocomplete="new-password">
+                <input class="lbtt-input" type="password" name="password2" required minlength="10" maxlength="128" autocomplete="new-password">
             </label>
             <label>
                 <span class="lbtt-label">Granularité des créneaux</span>
@@ -105,6 +111,5 @@
         </form>
     </div>
 </div>
-<?= format_deployment_footer() ?>
 </body>
 </html>

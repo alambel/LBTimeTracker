@@ -113,7 +113,15 @@ function handle_signup(PDO $db): void {
         csrf_check_form_or_die();
         login_ratelimit_gc();
         $blocked = login_ratelimit_check();
-        if ($blocked !== null) {
+
+        // Honeypot : champ caché que seuls les bots remplissent.
+        // Si rempli → réponse générique, pas d'inscription.
+        $honeypot = (string)($_POST['website'] ?? '');
+        if ($honeypot !== '') {
+            login_ratelimit_register_failure();
+            usleep(500000);
+            $error = 'Inscription impossible.';
+        } elseif ($blocked !== null) {
             $error = $blocked;
         } else {
             $u = trim((string)($_POST['username'] ?? ''));
@@ -139,10 +147,8 @@ function handle_signup(PDO $db): void {
                 $error = 'Nom invalide (2–64 car., lettres, chiffres, . _ -).';
             } elseif (!valid_email($email)) {
                 $error = 'Adresse email invalide.';
-            } elseif (strlen($p) < 6) {
-                $error = 'Mot de passe trop court (6 car. min.).';
-            } elseif (strlen($p) > 128) {
-                $error = 'Mot de passe trop long (128 car. max.).';
+            } elseif (($pwErr = validate_password_policy($p)) !== null) {
+                $error = $pwErr;
             } elseif ($p !== $p2) {
                 $error = 'Les mots de passe ne correspondent pas.';
             } elseif (!valid_slot_mode($mode)) {
@@ -173,6 +179,22 @@ function handle_signup(PDO $db): void {
                         catch (Throwable $e) { error_log('LBTT consume invitation failed: ' . $e->getMessage()); }
                     }
 
+                    // Envoi d'un mail de vérification email (non bloquant).
+                    // Si l'user vient d'une invitation, son email est déjà prouvé
+                    // (il a reçu le mail d'invitation) → marque-le vérifié direct.
+                    if ($invitation && (int)$invitation['id'] > 0) {
+                        $db->prepare('UPDATE users SET email_verified_at = NOW() WHERE id = ?')
+                           ->execute([$uid]);
+                    } else {
+                        try {
+                            $tok = set_email_verify_token($db, $uid);
+                            $verifyUrl = app_url() . '?action=verify_email&token=' . urlencode($tok);
+                            send_email_verification($email, $verifyUrl, $firstName !== '' ? $firstName : $u);
+                        } catch (Throwable $e) {
+                            error_log('LBTT send_email_verification failed: ' . $e->getMessage());
+                        }
+                    }
+
                     session_regenerate_id(true);
                     $_SESSION['uid'] = $uid;
                     $_SESSION['user'] = $u;
@@ -187,6 +209,36 @@ function handle_signup(PDO $db): void {
     }
     $title = 'Créer un compte — LBTimeTracker';
     include BASE_DIR . '/views/signup.php';
+}
+
+function handle_verify_email(PDO $db): void {
+    $token = (string)($_GET['token'] ?? '');
+    $uid = verify_email_by_token($db, $token);
+    $title = 'Vérification email — LBTimeTracker';
+    $ok = $uid !== null;
+    ob_start(); ?>
+    <div class="lbtt-page-head">
+        <div>
+            <div class="lbtt-label">Vérification email</div>
+            <h1 class="lbtt-page-title"><?= $ok ? 'email confirmé.' : 'lien invalide.' ?></h1>
+        </div>
+    </div>
+    <div class="lbtt-cal-tip">
+        <span class="lbtt-chip <?= $ok ? 'lbtt-chip-accent' : '' ?>"><?= $ok ? 'OK' : 'Erreur' ?></span>
+        <span class="lbtt-cal-tip-text">
+            <?= $ok
+                ? 'Ton adresse email est maintenant vérifiée.'
+                : 'Le lien est invalide, expiré, ou déjà utilisé. Depuis ton profil tu peux en redemander un.' ?>
+        </span>
+    </div>
+    <p style="margin-top: 14px;">
+        <a class="lbtt-btn lbtt-btn-primary" href="index.php?action=<?= current_user_id() ? 'calendar' : 'login' ?>">
+            <?= current_user_id() ? 'Retour au calendrier' : 'Se connecter' ?> →
+        </a>
+    </p>
+    <?php
+    $content = ob_get_clean();
+    render_layout($title, current_user_id() ? 'profile' : '', $content, $db);
 }
 
 function handle_logout(): void {

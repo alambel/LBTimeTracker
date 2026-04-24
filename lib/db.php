@@ -61,13 +61,16 @@ function db_migrate(PDO $db): void {
             first_name VARCHAR(64) NULL,
             last_name VARCHAR(64) NULL,
             avatar_path VARCHAR(255) NULL,
+            email_verified_at DATETIME NULL,
+            email_verify_token VARCHAR(64) NULL,
             password_hash VARCHAR(255) NOT NULL,
             is_app_admin TINYINT(1) NOT NULL DEFAULT 0,
             slot_mode VARCHAR(8) NOT NULL DEFAULT 'hd4',
             archived TINYINT(1) NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uq_username (username),
-            UNIQUE KEY uq_email (email)
+            UNIQUE KEY uq_email (email),
+            KEY idx_email_verify_token (email_verify_token)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
     // Ajout email pour installations existantes
@@ -86,6 +89,16 @@ function db_migrate(PDO $db): void {
     }
     if (!schema_has_column($db, 'users', 'avatar_path')) {
         $db->exec("ALTER TABLE users ADD COLUMN avatar_path VARCHAR(255) NULL AFTER last_name");
+    }
+    // Vérification email (lien cliqué dans mail de bienvenue)
+    if (!schema_has_column($db, 'users', 'email_verified_at')) {
+        $db->exec("ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL AFTER avatar_path");
+    }
+    if (!schema_has_column($db, 'users', 'email_verify_token')) {
+        $db->exec("ALTER TABLE users ADD COLUMN email_verify_token VARCHAR(64) NULL AFTER email_verified_at");
+    }
+    if (!schema_has_index($db, 'users', 'idx_email_verify_token')) {
+        $db->exec("ALTER TABLE users ADD KEY idx_email_verify_token (email_verify_token)");
     }
 
     // 2) projects (base)
@@ -250,6 +263,26 @@ function update_user_name(PDO $db, int $userId, ?string $firstName, ?string $las
 function update_user_avatar(PDO $db, int $userId, ?string $avatarPath): void {
     $stmt = $db->prepare('UPDATE users SET avatar_path = ? WHERE id = ?');
     $stmt->execute([$avatarPath, $userId]);
+}
+
+/** Génère + stocke un nouveau token de vérification email, renvoie le token. */
+function set_email_verify_token(PDO $db, int $userId): string {
+    $tok = bin2hex(random_bytes(24));
+    $stmt = $db->prepare('UPDATE users SET email_verify_token = ?, email_verified_at = NULL WHERE id = ?');
+    $stmt->execute([$tok, $userId]);
+    return $tok;
+}
+
+/** Marque l'email comme vérifié si le token match. Renvoie user_id ou null. */
+function verify_email_by_token(PDO $db, string $token): ?int {
+    if ($token === '') return null;
+    $stmt = $db->prepare('SELECT id FROM users WHERE email_verify_token = ? AND archived = 0 LIMIT 1');
+    $stmt->execute([$token]);
+    $uid = $stmt->fetchColumn();
+    if ($uid === false) return null;
+    $upd = $db->prepare('UPDATE users SET email_verified_at = NOW(), email_verify_token = NULL WHERE id = ?');
+    $upd->execute([(int)$uid]);
+    return (int)$uid;
 }
 
 function get_user(PDO $db, int $id): ?array {

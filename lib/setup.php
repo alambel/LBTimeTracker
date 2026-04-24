@@ -27,10 +27,8 @@ function handle_setup(): void {
             $error = 'Nom d\'utilisateur trop long (64 car. max).';
         } elseif ($p !== $p2) {
             $error = 'Les mots de passe admin ne correspondent pas.';
-        } elseif (strlen($p) < 6) {
-            $error = 'Mot de passe admin trop court (6 caractères minimum).';
-        } elseif (strlen($p) > 128) {
-            $error = 'Mot de passe trop long (128 car. max).';
+        } elseif (($pwErr = validate_password_policy($p)) !== null) {
+            $error = $pwErr;
         } elseif ($dbHost === '' || $dbName === '' || $dbUser === '' || $dbPort <= 0 || $dbPort > 65535) {
             $error = 'Paramètres base de données incomplets ou invalides.';
         } elseif (!valid_timezone($tz)) {
@@ -124,12 +122,12 @@ function handle_setup(): void {
                 <input id="setup-username" class="lbtt-input" type="text" name="username" required value="<?= e($form['username']) ?>" autocomplete="username">
             </div>
             <div class="lbtt-setup-field">
-                <label class="lbtt-label" for="setup-password">Mot de passe (6 car. min.)</label>
-                <input id="setup-password" class="lbtt-input" type="password" name="password" required minlength="6" autocomplete="new-password">
+                <label class="lbtt-label" for="setup-password">Mot de passe (10 car. min.)</label>
+                <input id="setup-password" class="lbtt-input" type="password" name="password" required minlength="10" maxlength="128" autocomplete="new-password">
             </div>
             <div class="lbtt-setup-field">
                 <label class="lbtt-label" for="setup-password2">Confirmer</label>
-                <input id="setup-password2" class="lbtt-input" type="password" name="password2" required minlength="6" autocomplete="new-password">
+                <input id="setup-password2" class="lbtt-input" type="password" name="password2" required minlength="10" maxlength="128" autocomplete="new-password">
             </div>
             <p class="lbtt-setup-note">
                 Hash bcrypt stocké dans <span class="lbtt-mono">config.php</span> (chmod 0600).

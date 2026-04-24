@@ -1120,3 +1120,14 @@ body > .lbtt-footer .lbtt-footer-subject,
     .lbtt-avatar-big { width: 80px; height: 80px; }
     .lbtt-avatar-initials { font-size: 30px; }
 }
+
+/* Honeypot anti-bot : masqué visuellement mais pas display:none (certains bots
+   ignorent les fields avec display:none). */
+.lbtt-hp {
+    position: absolute !important;
+    left: -10000px !important;
+    top: auto !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+}

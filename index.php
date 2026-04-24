@@ -69,6 +69,9 @@ switch ($action) {
     case 'signup':
         handle_signup($db);
         break;
+    case 'verify_email':
+        handle_verify_email($db);
+        break;
     case 'logout':
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             csrf_check_form_or_die();

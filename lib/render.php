@@ -180,6 +180,9 @@ function render_projects(PDO $db): void {
             } elseif ($op === 'invite') {
                 $id = (int)($_POST['id'] ?? 0);
                 if (!user_is_project_admin($db, $id, $uid)) { throw new RuntimeException('Admin du projet requis.'); }
+                // Rate-limit : 20 invitations/h/user
+                $rlBlock = invite_ratelimit_check($uid);
+                if ($rlBlock !== null) { throw new RuntimeException($rlBlock); }
                 $email = normalize_email((string)($_POST['invite_email'] ?? ''));
                 $role = (string)($_POST['invite_role'] ?? 'member');
                 if (!in_array($role, ['admin','member'], true)) $role = 'member';
@@ -188,6 +191,7 @@ function render_projects(PDO $db): void {
                 if (!$project) { throw new RuntimeException('Projet introuvable.'); }
                 $target = get_user_by_email($db, $email);
                 if ($target && !empty($target['archived'])) { throw new RuntimeException('Compte archivé, impossible d\'inviter.'); }
+                invite_ratelimit_register($uid);
 
                 if ($target) {
                     add_project_member($db, $id, (int)$target['id'], $role);
@@ -398,13 +402,31 @@ function render_profile(PDO $db): void {
                 if ($existing && (int)$existing['id'] !== $uid) {
                     throw new RuntimeException('Cette adresse est déjà utilisée par un autre compte.');
                 }
+                $emailChanged = (string)($me['email'] ?? '') !== $email;
                 update_user_email($db, $uid, $email);
-                // PAS d'auto-consume des invitations en attente ici (l'email n'est
-                // pas vérifié via OTP à ce stade → sinon, je change mon email pour
-                // celui d'une victime et je hérite de ses invitations).
-                // L'utilisateur doit cliquer le lien de chaque invitation pour prouver
-                // l'accès à la boîte mail (cf. audit sécu #3).
-                $notice = 'Email mis à jour.';
+                // PAS d'auto-consume des invitations en attente (email non vérifié
+                // via OTP → cf. audit sécu #3).
+                // Si email modifié → reset du statut "vérifié" + mail de vérif.
+                if ($emailChanged) {
+                    try {
+                        $tok = set_email_verify_token($db, $uid);
+                        $verifyUrl = app_url() . '?action=verify_email&token=' . urlencode($tok);
+                        send_email_verification($email, $verifyUrl, display_name($me));
+                    } catch (Throwable $e) {
+                        error_log('LBTT resend verify failed: ' . $e->getMessage());
+                    }
+                    $notice = 'Email mis à jour — un lien de vérification a été envoyé à ' . $email . '.';
+                } else {
+                    $notice = 'Email inchangé.';
+                }
+            } elseif ($op === 'resend_verify') {
+                if (empty($me['email'])) throw new RuntimeException('Aucun email à vérifier.');
+                $tok = set_email_verify_token($db, $uid);
+                $verifyUrl = app_url() . '?action=verify_email&token=' . urlencode($tok);
+                $sent = send_email_verification((string)$me['email'], $verifyUrl, display_name($me));
+                $notice = $sent
+                    ? 'Lien de vérification renvoyé à ' . $me['email'] . '.'
+                    : 'Lien de vérification créé — mail.() n\'a pas confirmé l\'envoi, lien direct : ' . $verifyUrl;
             } elseif ($op === 'identity') {
                 $fn = sanitize_name((string)($_POST['first_name'] ?? ''), 64);
                 $ln = sanitize_name((string)($_POST['last_name'] ?? ''), 64);
@@ -433,9 +455,13 @@ function render_profile(PDO $db): void {
                 $new = (string)($_POST['new_password'] ?? '');
                 $new2 = (string)($_POST['new_password2'] ?? '');
                 if (!password_verify($curr, (string)$me['password_hash'])) throw new RuntimeException('Mot de passe actuel invalide.');
-                if (strlen($new) < 6 || strlen($new) > 128) throw new RuntimeException('Nouveau mot de passe : 6–128 car.');
+                $pwErr = validate_password_policy($new);
+                if ($pwErr !== null) throw new RuntimeException($pwErr);
                 if ($new !== $new2) throw new RuntimeException('Confirmation différente.');
                 update_user_password($db, $uid, password_hash($new, PASSWORD_BCRYPT));
+                // Sécu : rotation CSRF + régénération de session après changement de mdp
+                csrf_rotate();
+                session_regenerate_id(true);
                 $notice = 'Mot de passe mis à jour.';
             }
         } catch (Throwable $e) {

@@ -81,6 +81,21 @@ $color = user_color_hsl((int)$me['id']);
 
     <div class="lbtt-profile-card">
         <div class="lbtt-label" style="margin-bottom: 8px;">Email</div>
+        <?php if (!empty($me['email'])): ?>
+            <div style="margin-bottom: 10px; font-size: 12px;">
+                <?php if (!empty($me['email_verified_at'])): ?>
+                    <span class="lbtt-chip lbtt-chip-accent">✓ Vérifié</span>
+                    <span style="color: var(--lbtt-muted);">depuis <?= e(date('d/m/Y', strtotime((string)$me['email_verified_at']))) ?></span>
+                <?php else: ?>
+                    <span class="lbtt-chip">non vérifié</span>
+                    <form method="post" style="display: inline; margin-left: 6px;">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="op" value="resend_verify">
+                        <button type="submit" class="lbtt-btn lbtt-btn-ghost" style="font-size: 10px;">Renvoyer le lien</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
         <form method="post">
             <?= csrf_field() ?>
             <input type="hidden" name="op" value="email">
@@ -118,10 +133,10 @@ $color = user_color_hsl((int)$me['id']);
                 <input class="lbtt-input" type="password" name="current_password" required autocomplete="current-password">
             </label>
             <label><span class="lbtt-label">Nouveau</span>
-                <input class="lbtt-input" type="password" name="new_password" required minlength="6" maxlength="128" autocomplete="new-password">
+                <input class="lbtt-input" type="password" name="new_password" required minlength="10" maxlength="128" autocomplete="new-password">
             </label>
             <label><span class="lbtt-label">Confirmer</span>
-                <input class="lbtt-input" type="password" name="new_password2" required minlength="6" maxlength="128" autocomplete="new-password">
+                <input class="lbtt-input" type="password" name="new_password2" required minlength="10" maxlength="128" autocomplete="new-password">
             </label>
             <button type="submit" class="lbtt-btn lbtt-btn-primary" style="margin-top: 10px;">Mettre à jour</button>
         </form>

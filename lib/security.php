@@ -75,6 +75,11 @@ function csrf_token(): string {
     return $_SESSION['csrf'];
 }
 
+/** Force la rotation du token CSRF (après password change, logout partiel, etc.). */
+function csrf_rotate(): void {
+    $_SESSION['csrf'] = bin2hex(random_bytes(32));
+}
+
 function csrf_valid(string $submitted): bool {
     $expected = $_SESSION['csrf'] ?? '';
     if (!is_string($expected) || $expected === '' || $submitted === '') return false;
@@ -166,6 +171,60 @@ function login_ratelimit_reset(): void {
     @unlink(_ratelimit_file());
 }
 
+/* ==================== Rate limit invitations (par user) ==================== */
+
+function _invite_ratelimit_file(int $userId): string {
+    $dir = BASE_DIR . '/data/ratelimit';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0700, true);
+        @file_put_contents(BASE_DIR . '/data/.htaccess', "Require all denied\n");
+    }
+    return $dir . '/invite_u' . $userId . '.json';
+}
+
+/**
+ * Renvoie null si l'envoi est autorisé, sinon un message d'erreur.
+ * Limite : 20 invitations par user sur 1 heure glissante.
+ */
+function invite_ratelimit_check(int $userId): ?string {
+    $file = _invite_ratelimit_file($userId);
+    $now = time();
+    $windowStart = $now - 3600;
+    $entries = [];
+    if (is_readable($file)) {
+        $data = json_decode((string)@file_get_contents($file), true);
+        if (is_array($data)) {
+            foreach ($data as $t) {
+                if (is_int($t) && $t >= $windowStart) $entries[] = $t;
+            }
+        }
+    }
+    if (count($entries) >= 20) {
+        $oldest = min($entries);
+        $wait = max(1, 3600 - ($now - $oldest));
+        $min = ceil($wait / 60);
+        return 'Trop d\'invitations envoyées. Réessaie dans ' . $min . ' min.';
+    }
+    return null;
+}
+
+function invite_ratelimit_register(int $userId): void {
+    $file = _invite_ratelimit_file($userId);
+    $now = time();
+    $windowStart = $now - 3600;
+    $entries = [];
+    if (is_readable($file)) {
+        $data = json_decode((string)@file_get_contents($file), true);
+        if (is_array($data)) {
+            foreach ($data as $t) {
+                if (is_int($t) && $t >= $windowStart) $entries[] = $t;
+            }
+        }
+    }
+    $entries[] = $now;
+    @file_put_contents($file, json_encode($entries));
+}
+
 /** GC best-effort des fichiers rate-limit anciens (>24h sans activité). */
 function login_ratelimit_gc(): void {
     $dir = BASE_DIR . '/data/ratelimit';
@@ -203,6 +262,39 @@ function sanitize_name(string $s, int $maxLen = 100): string {
         $s = mb_substr($s, 0, $maxLen);
     }
     return $s;
+}
+
+/**
+ * Politique mot de passe : min 10 car., max 128, pas dans la blocklist
+ * (top pwd leakés). Renvoie null si OK, message d'erreur sinon.
+ */
+function validate_password_policy(string $pwd): ?string {
+    $len = strlen($pwd);
+    if ($len < 10) return 'Mot de passe trop court (10 caractères minimum).';
+    if ($len > 128) return 'Mot de passe trop long (128 caractères max.).';
+    if (is_common_password($pwd)) return 'Mot de passe trop commun — choisis-en un plus unique.';
+    return null;
+}
+
+function is_common_password(string $pwd): bool {
+    static $list = null;
+    if ($list === null) {
+        // Top 100 passwords leakés (extrait) — source SecLists 2024.
+        $list = array_flip([
+            '123456','password','12345678','qwerty','123456789','12345','1234','111111','1234567','dragon',
+            'baseball','abc123','football','monkey','letmein','696969','shadow','master','666666','qwertyuiop',
+            '123321','mustang','1234567890','michael','654321','superman','1qaz2wsx','7777777','121212',
+            '000000','qazwsx','123qwe','killer','trustno1','jordan','jennifer','zxcvbnm','asdfgh','hunter',
+            'buster','soccer','harley','batman','andrew','tigger','sunshine','iloveyou','2000','charlie',
+            'robert','thomas','hockey','ranger','daniel','starwars','klaster','112233','george','computer',
+            'michelle','jessica','pepper','1111','zxcvbn','555555','11111111','131313','freedom','777777',
+            'pass','maggie','159753','aaaaaa','ginger','princess','joshua','cheese','amanda','summer',
+            'love','ashley','nicole','chelsea','biteme','matthew','access','yankees','987654321','dallas',
+            'austin','thunder','taylor','matrix','minecraft','azerty','motdepasse','soleil','admin','bonjour',
+            'camille','nicolas','chocolat','doudou','loulou',
+        ]);
+    }
+    return isset($list[strtolower($pwd)]);
 }
 
 function sanitize_note(string $s, int $maxLen = 200): string {

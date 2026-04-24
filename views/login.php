@@ -57,6 +57,5 @@
         </form>
     </div>
 </div>
-<?= format_deployment_footer() ?>
 </body>
 </html>

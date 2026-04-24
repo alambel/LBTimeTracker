@@ -72,6 +72,23 @@ function send_mail(string $to, string $subject, string $bodyHtml, string $bodyTe
     }
 }
 
+function send_email_verification(string $to, string $verifyUrl, string $displayName): bool {
+    $nameSafe = htmlspecialchars($displayName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $urlSafe = htmlspecialchars($verifyUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $subject = 'Confirme ton adresse email — LBTimeTracker';
+    $text = "Bienvenue " . $displayName . ",\n\n"
+          . "Confirme ton adresse email en cliquant ce lien :\n"
+          . $verifyUrl . "\n\n"
+          . "Si tu n'es pas à l'origine de cette inscription, ignore ce message.\n";
+    $html = '<div style="font-family: system-ui, sans-serif; font-size: 14px; color: #1a1a1a;">'
+          . '<p>Bienvenue <strong>' . $nameSafe . '</strong>,</p>'
+          . '<p>Confirme ton adresse email pour activer la vérification de ton compte :</p>'
+          . '<p><a href="' . $urlSafe . '" style="display:inline-block;padding:10px 14px;background:#c45a2e;color:#fff;text-decoration:none;">Confirmer mon email →</a></p>'
+          . '<p style="color:#888;font-size:12px">Si tu n\'es pas à l\'origine de cette inscription, ignore ce message.</p>'
+          . '</div>';
+    return send_mail($to, $subject, $html, $text);
+}
+
 function send_invitation_email(string $to, string $projectName, string $inviteUrl, string $inviterName, bool $existingUser = false): bool {
     $projSafe = htmlspecialchars($projectName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $inviterSafe = htmlspecialchars($inviterName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
