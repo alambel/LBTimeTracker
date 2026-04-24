@@ -165,7 +165,10 @@ function asset_version(): string {
 }
 
 function asset_url(string $path): string {
-    return e($path) . '?v=' . e(asset_version());
+    // Préfixe par "/" pour éviter la résolution relative au path courant
+    // (ex. sous /team/3, "assets/style.css" serait résolu en /team/assets/...).
+    $path = ltrim($path, '/');
+    return '/' . e($path) . '?v=' . e(asset_version());
 }
 
 function format_deployment_footer(): string {
