@@ -65,7 +65,9 @@ $meId = current_user_id();
         $isAdmin = ($myRole === 'admin');
         $rowCls = 'lbtt-proj-card' . (!empty($p['archived']) ? ' archived' : '');
     ?>
-        <div class="<?= $rowCls ?>" data-project-card>
+        <div class="<?= $rowCls ?>" data-project-card data-project-link="index.php?action=team&amp;id=<?= $pid ?>"
+             role="link" tabindex="0"
+             aria-label="Voir l'équipe du projet <?= e($p['name']) ?>">
             <div class="lbtt-proj-card-head">
                 <div class="lbtt-proj-swatch" style="color: <?= e($p['color']) ?>;"></div>
                 <div class="lbtt-proj-card-name">
@@ -76,7 +78,6 @@ $meId = current_user_id();
                     </span>
                 </div>
                 <div class="lbtt-proj-card-actions">
-                    <a href="index.php?action=team&id=<?= $pid ?>" class="lbtt-btn lbtt-btn-ghost" style="font-size: 10px;">Équipe →</a>
                     <?php if ($isAdmin): ?>
                         <button type="button" class="lbtt-btn lbtt-btn-ghost" style="font-size: 10px;" data-toggle-project-manage>Gérer ▾</button>
                     <?php endif; ?>

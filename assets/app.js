@@ -257,7 +257,8 @@
 
     // ===== Projects — toggle "Gérer" panel per card =====
     document.querySelectorAll('[data-toggle-project-manage]').forEach((btn) => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation(); // ne pas déclencher la navigation carte
             const card = btn.closest('[data-project-card]');
             if (!card) return;
             const panel = card.querySelector('[data-project-manage]');
@@ -265,6 +266,24 @@
             const isOpen = !panel.hasAttribute('hidden');
             if (isOpen) panel.setAttribute('hidden', '');
             else panel.removeAttribute('hidden');
+        });
+    });
+
+    // ===== Projects — click sur la carte ouvre la vue équipe =====
+    // La carte entière est cliquable (sauf les éléments interactifs imbriqués :
+    // formulaires, boutons, inputs, selects, labels).
+    const INTERACTIVE = 'a, button, input, select, textarea, label, form';
+    document.querySelectorAll('[data-project-link]').forEach((card) => {
+        const go = () => { window.location.href = card.getAttribute('data-project-link'); };
+        card.addEventListener('click', (e) => {
+            if (e.target.closest(INTERACTIVE)) return;
+            go();
+        });
+        card.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            if (e.target.closest(INTERACTIVE)) return;
+            e.preventDefault();
+            go();
         });
     });
 })();

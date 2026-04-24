@@ -876,7 +876,11 @@ body > .lbtt-footer .lbtt-footer-subject,
     background: var(--lbtt-paper-2);
     border: 1px solid var(--lbtt-rule);
     padding: 12px 14px;
+    transition: border-color 120ms, background 120ms;
 }
+.lbtt-proj-card[data-project-link] { cursor: pointer; }
+.lbtt-proj-card[data-project-link]:hover { border-color: var(--lbtt-ink); background: var(--lbtt-paper); }
+.lbtt-proj-card[data-project-link]:focus-visible { outline: 2px solid var(--lbtt-accent); outline-offset: -2px; }
 .lbtt-proj-card.archived { opacity: 0.65; }
 .lbtt-proj-card-head { display: flex; align-items: center; gap: 10px; }
 .lbtt-proj-card-name { flex: 1; min-width: 0; }
